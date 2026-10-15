@@ -28,6 +28,7 @@ from helpers.log_helper import setup_logging
 from onprem.api.app import OnPremApiBuilder
 from services import SP
 from services.openapi_spec_generator import OpenApiGenerator
+from services.reports_bucket import ReportsBucketKeysBuilder
 
 
 SRC = Path(__file__).parent.resolve()
@@ -57,6 +58,18 @@ DEFAULT_HOST = '0.0.0.0'
 DEFAULT_PORT = 8000
 
 SYSTEM_USER = 'system_user'
+
+DEPLOYMENT_DIR = Path(__file__).parent.parent / 'deployment'
+DEPLOYMENT_ARTIFACTS_DIR = DEPLOYMENT_DIR / 'artifacts'
+
+DASHBOARD_TEMPLATE_PATH = (
+    DEPLOYMENT_ARTIFACTS_DIR /
+    ReportsBucketKeysBuilder.dashboard_template_file
+)
+CUSTODIAN_RESOURCE_NAMES_MAP_PATH = (
+    DEPLOYMENT_ARTIFACTS_DIR /
+    'CUSTODIAN_RESOURCE_NAMES_MAP.json'
+)
 
 
 def gen_password(digits: int = 20) -> str:
@@ -361,8 +374,45 @@ class Run(ActionHandler):
 
 
 class InitAction(ActionHandler):
+    @staticmethod
+    def upload_dashboard_artifacts():
+        if not DASHBOARD_TEMPLATE_PATH.is_file():
+            raise FileNotFoundError(
+                f'Dashboard template not found: {DASHBOARD_TEMPLATE_PATH}'
+            )
+
+        bucket = SP.environment_service.default_reports_bucket_name()
+        key = ReportsBucketKeysBuilder.dashboard_template_key()
+        SP.s3.put_object(
+            bucket=bucket,
+            key=key,
+            body=DASHBOARD_TEMPLATE_PATH.read_bytes(),
+            content_type=(
+                'application/vnd.openxmlformats-officedocument.'
+                'spreadsheetml.sheet'
+            ),
+        )
+        _LOG.info(f'Uploaded dashboard template to s3://{bucket}/{key}')
+
     def __call__(self):
         from models.setting import Setting
+
+        self.upload_dashboard_artifacts()
+
+        if not CUSTODIAN_RESOURCE_NAMES_MAP_PATH.is_file():
+            raise FileNotFoundError(
+                f'Custodian resource names map not found: '
+                f'{CUSTODIAN_RESOURCE_NAMES_MAP_PATH}'
+            )
+
+        _LOG.info('Setting Custodian resource names map')
+        resource_names_map = json.loads(
+            CUSTODIAN_RESOURCE_NAMES_MAP_PATH.read_text(encoding='utf-8')
+        )
+        Setting(
+            name=SettingKey.CUSTODIAN_RESOURCE_NAMES_MAP.value,
+            value=resource_names_map,
+        ).save()
 
         if not Setting.get_nullable(SettingKey.SYSTEM_CUSTOMER):
             _LOG.info('Setting system customer name')

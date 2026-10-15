@@ -71,6 +71,10 @@ class Endpoint(str, Enum):
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
     REPORTS_STATUS = '/reports/status'
+    REPORTS_DASHBOARD_JOBS_JOB_ID = '/reports/dashboard/jobs/{job_id}'
+    REPORTS_DASHBOARD_TENANTS_TENANT_NAME = (
+        '/reports/dashboard/tenants/{tenant_name}'
+    )
     REPORTS_PROJECT = '/reports/project'
     USERS_USERNAME = '/users/{username}'
     CREDENTIALS_ID = '/credentials/{id}'
@@ -925,6 +929,7 @@ class Permission(str, Enum):
         False,
         True,
     )
+    REPORT_DASHBOARD = 'report:get_dashboard', False, True
 
     JOB_QUERY = 'job:query', False, True
     JOB_GET = 'job:get', False, True
@@ -1260,6 +1265,7 @@ class SettingKey(str, Enum):
     MAX_CRON_NUMBER = 'MAX_CRON_NUMBER'
     MAX_RABBITMQ_REQUEST_SIZE = 'MAX_RABBITMQ_REQUEST_SIZE'
     REPORT_DELIVERY_CURSORS = 'REPORT_DELIVERY_CURSORS'
+    CUSTODIAN_RESOURCE_NAMES_MAP = 'CUSTODIAN_RESOURCE_NAMES_MAP'
 
 
 class PlatformType(str, Enum):

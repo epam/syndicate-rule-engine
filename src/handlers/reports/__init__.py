@@ -5,6 +5,7 @@ This module contains handlers for reports endpoints.
 """
 
 from .compliance_handler import ComplianceReportHandler
+from .dashboard_handler import DashboardReportHandler
 from .details_handler import DetailedReportHandler
 from .digest_handler import DigestReportHandler
 from .errors_handler import ErrorsReportHandler
@@ -19,6 +20,7 @@ from .rules_handler import JobsRulesHandler
 
 
 __all__ = (
+    "DashboardReportHandler",
     "DetailedReportHandler",
     "DigestReportHandler",
     "FindingsReportHandler",
