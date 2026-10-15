@@ -1,5 +1,7 @@
-memoryLimit: 512Mi
-memoryRequest: 128Mi
+memoryLimit: 4Gi
+memoryRequest: 2Gi
+
+wiredTigerCacheSizeGB: 2
 
 service:
   type: ClusterIP
@@ -14,7 +16,7 @@ image:
 
 persistence:
   accessMode: ReadWriteOnce
-  size: 4Gi
+  size: 16Gi
   storageClass: standard
   hostPath: /data/mongo
 
