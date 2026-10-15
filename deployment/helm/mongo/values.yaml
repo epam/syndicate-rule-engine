@@ -1,5 +1,5 @@
-memoryLimit: 512Mi
-memoryRequest: 128Mi
+memoryLimit: 2Gi
+memoryRequest: 512Mi
 
 service:
   type: ClusterIP
@@ -14,7 +14,7 @@ image:
 
 persistence:
   accessMode: ReadWriteOnce
-  size: 4Gi
+  size: 10Gi
   storageClass: standard
   hostPath: /data/mongo
 

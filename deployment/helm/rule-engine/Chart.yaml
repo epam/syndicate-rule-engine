@@ -1,9 +1,9 @@
 apiVersion: v2
-appVersion: "5.21.2"
+appVersion: "5.21.3"
 description: A Helm chart for the rule-engine
 name: rule-engine
 type: application
-version: "5.21.2"
+version: "5.21.3"
 dependencies:
   - name: vault
     repository: "s3://charts-repository/syndicate/"
