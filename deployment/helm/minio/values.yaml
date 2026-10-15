@@ -23,7 +23,7 @@ image:
 
 persistence:
   accessMode: ReadWriteOnce
-  size: 5Gi
+  size: 4Gi
   storageClass: standard
   hostPath: /data/minio
 

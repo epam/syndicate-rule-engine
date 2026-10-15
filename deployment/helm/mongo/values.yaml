@@ -14,7 +14,7 @@ image:
 
 persistence:
   accessMode: ReadWriteOnce
-  size: 10Gi
+  size: 4Gi
   storageClass: standard
   hostPath: /data/mongo
 
