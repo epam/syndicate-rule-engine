@@ -8,7 +8,7 @@ its state to `CREATE_COMPLETE` you can access the product in the following ways:
 
 ### CLI
 To access the EPAM Syndicate Rule Engine's CLI please follow these steps:
-1. Verify if the inbound/outbound SSH traffic is allowed to port 22 by the 
+1. Verify if the inbound SSH traffic is allowed to port 22 by the 
 Security Group that is applied to the product instance;
 2. Make sure that you have the SSH key used while instance provisioning;
 3. Ensure the key file has read-only permission for the owner or file user.
@@ -19,17 +19,22 @@ If not, set such permission with the command: `chmod 400 $SSH_KEY_NAME` where
    - `$SSH_KEY_NAME` is the actual name of the key file;
    - `$INSTANCE_PUBLIC_DNS` is the actual public DNS of the instance.
 5. After you successfully log in check if the syndicate CLI is available with the 
-command `syndicate --version`.
+command `syndicate version`.
 
 ### Defect Dojo
 To access the Defect Dojo Web Interface do the following steps: 
-1. Verify if the inbound/outbound HTTP traffic is allowed to 80 port by the 
+1. Verify if the inbound HTTP traffic is allowed to port 80 by the 
 Security Group that is applied to the product instance;
-2. Open https://INSTANCE-PUBLIC-DNS:80 (replace INSTANCE-PUBLIC-DNS with the actual value) 
-in your browser; the Defect Dojo web app will open.  
+2. Open `http://INSTANCE-PUBLIC-DNS` (replace INSTANCE-PUBLIC-DNS with the actual value) 
+in your browser; the Defect Dojo web app will open. Note that it is served over plain HTTP.  
 
 ### API 
-Coming Soon.
+The following endpoints are exposed by the instance (the Security Group must allow the ports):
+- Modular API (`syndicate` CLI backend): port `8085`;
+- MinIO API: port `9000`.
+
+The Rule Engine and Modular Service APIs (port `8000`) are not exposed outside the instance by default.
+See the [testing guide](./testing.md) for the steps to expose them.
 In case of urgent need please contact [SupportSyndicateTeam@epam.com](mailto:SupportSyndicateTeam@epam.com)
 
 ### Support
