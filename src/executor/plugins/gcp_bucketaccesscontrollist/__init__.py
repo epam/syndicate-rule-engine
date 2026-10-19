@@ -18,11 +18,22 @@ class BucketAccessControlList(ChildResourceManager):
                 ('name', 'bucket',),
             ]}
 
+    def get_resource_manager(self, resource_type, data=None):
+        data = data or {}
+        data['filters'] = list(data.get('filters', [])) + [
+            {
+                'type': 'value',
+                'key': 'destination',
+                'op': 'regex',
+                'value': r'^storage\.googleapis\.com/',
+            }
+        ]
+
+        return super().get_resource_manager(resource_type, data)
+
     def _get_child_enum_args(self, parent_instance):
-        if parent_instance['destination'].startswith('storage'):
-            bucket = parent_instance['destination'].split('/')[1]
-            return {'bucket': bucket}
-        return {}
+        bucket = parent_instance['destination'].split('/')[1]
+        return {'bucket': bucket}
 
 
 def register() -> None:
