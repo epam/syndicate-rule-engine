@@ -61,8 +61,8 @@ class LoadBalancerBackendSslPolicy(ChildResourceManager):
         if ssl_policy_full_name:
             ssl_policy_name = re.match('.*/global/sslPolicies/(.*)', ssl_policy_full_name
                                        ).group(1)
-            return [{'filter': 'name={}'.format(ssl_policy_name)}]
-        return []
+            return {'filter': 'name={}'.format(ssl_policy_name)}
+        return {}
 
 
 class LoadBalancerTargetHttpsProxySslPolicy(ChildResourceManager):

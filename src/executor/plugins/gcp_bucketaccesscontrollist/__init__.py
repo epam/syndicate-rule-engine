@@ -21,10 +21,8 @@ class BucketAccessControlList(ChildResourceManager):
     def _get_child_enum_args(self, parent_instance):
         if parent_instance['destination'].startswith('storage'):
             bucket = parent_instance['destination'].split('/')[1]
-            return [{'bucket': bucket}]
-        return []
-
-
+            return {'bucket': bucket}
+        return {}
 
 
 def register() -> None:
@@ -33,4 +31,3 @@ def register() -> None:
 
     resources.register('bucket-access-control-list', BucketAccessControlList)
     ResourceMap['gcp.bucket-access-control-list'] = f'{__name__}.{BucketAccessControlList.__name__}'
-
