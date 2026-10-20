@@ -12,14 +12,19 @@ from handlers.reports.compliance_handler import (
 )
 from helpers.constants import Cloud
 from helpers.reports import Standard
-from services.metadata import Metadata
+from services.metadata import CoverageControl, Metadata
 from services.report_service import ReportService
 from services.sharding import ShardPart, ShardsCollectionFactory
 
 
 _STANDARD = Standard('Standard1', 'v1.0.0')
 #: two controls, one rule is mapped to each of them
-_FULL_COV = {_STANDARD: {'p1': 1, 'p2': 1}}
+_FULL_COV = {
+    _STANDARD: {
+        'p1': CoverageControl(total_rules=1, control_title=''),
+        'p2': CoverageControl(total_rules=1, control_title=''),
+    }
+}
 
 
 def _metadata(rules: dict[str, tuple[str, ...]]) -> Metadata:

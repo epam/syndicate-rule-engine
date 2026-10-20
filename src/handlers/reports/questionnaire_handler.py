@@ -33,10 +33,9 @@ Data sources
   Scan results           : which of those rules succeeded / failed / were not
     evaluated.
 
-Currently metadata does not provide the standard hierarchy (sections,
-sub-sections, control titles) therefore those columns are omitted. As soon as
-such data appears it is enough to populate the corresponding ``ControlRow``
-attributes - the sheet layout picks them up automatically.
+The metadata provides the standard hierarchy (sections, sub-sections, control
+titles) through ``CoverageControl``. These values are included in the
+corresponding ``ControlRow`` fields when present in ``full_controls``.
 
 Multi-region aggregation
 ------------------------
@@ -101,7 +100,7 @@ from services import SP, modular_helpers
 from services.coverage_service import calculate_controls_coverages
 from services.job_service import JobService
 from services.license_service import LicenseService
-from services.metadata import Metadata
+from services.metadata import CoverageControl, Metadata
 from services.platform_service import PlatformService
 from services.report_service import ReportResponse, ReportService
 from services.sharding import ShardsCollection
@@ -301,8 +300,7 @@ class ControlRow:
     """One control of the standard, enriched with compliance results."""
 
     control_id: str
-    #: Optional hierarchy data. Not provided by metadata yet, but the sheet
-    #: layout supports it as soon as it appears.
+    #: Optional hierarchy data.
     section_id: str = ''
     section_title: str = ''
     #: (id, title) pairs between the top-level section and the control.
@@ -1270,7 +1268,7 @@ class QuestionnaireHandler(AbstractHandler):
         metadata: Metadata,
         cloud: Cloud,
         standard: Standard,
-        full_controls: dict[str, int],
+        full_controls: dict[str, CoverageControl],
         scope: ReportScope,
     ) -> io.BytesIO:
         """Build a questionnaire workbook without constructing an HTTP response."""
@@ -1352,15 +1350,8 @@ class QuestionnaireHandler(AbstractHandler):
         metadata: Metadata,
         cloud: Cloud,
         standard: Standard,
-        full_controls: dict[str, int],
-        hierarchy: MappingABC[str, dict] | None = None,
+        full_controls: dict[str, CoverageControl],
     ) -> list[ControlRow]:
-        """
-        :param hierarchy: optional control id -> {'section_id', 'section_title',
-            'sub_sections', 'control_title'} mapping. Once the metadata starts
-            providing the standard schema it can be injected here and the
-            corresponding columns will appear in the resulting workbook.
-        """
         control_to_rules = self.build_standard_control_to_rule_names(
             metadata=metadata, cloud=cloud
         )
@@ -1401,14 +1392,16 @@ class QuestionnaireHandler(AbstractHandler):
         for control in sorted(aggregated, key=natural_key):
             compliance = aggregated[control]
             compliance.resolve_overlaps()
-            extra = (hierarchy or {}).get(control) or {}
+            control_data = full_controls[control]
+            sections = control_data.sections
+            first_section = sections[0] if sections else None
             rows.append(
                 ControlRow(
                     control_id=control,
-                    section_id=extra.get('section_id', ''),
-                    section_title=extra.get('section_title', ''),
-                    sub_sections=list(extra.get('sub_sections') or ()),
-                    control_title=extra.get('control_title', ''),
+                    section_id=first_section.id if first_section else '',
+                    section_title=first_section.title if first_section else '',
+                    sub_sections=[(section.id, section.title) for section in sections[1:]],
+                    control_title=control_data.control_title,
                     coverage=compliance.coverage or 0.0,
                     severity=compliance.severity or '',
                     successful_rules=sorted(compliance.successful),

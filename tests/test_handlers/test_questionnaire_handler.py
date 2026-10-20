@@ -17,7 +17,7 @@ from handlers.reports.questionnaire_handler import (
 )
 from helpers.constants import Cloud, Severity
 from helpers.reports import Standard
-from services.metadata import Metadata
+from services.metadata import CoverageControl, CoverageSection, Metadata
 from services.report_service import ReportService
 from services.sharding import ShardPart, ShardsCollectionFactory
 
@@ -100,7 +100,11 @@ def test_mapping_sets_deprecated_rules_apart():
 
 
 def test_resolve_standard_by_full_name():
-    full_cov = {_STANDARD: {'1.1': 1}}
+    full_cov = {
+        _STANDARD: {
+            '1.1': CoverageControl(total_rules=1, control_title='')
+        }
+    }
     assert (
         QuestionnaireHandler.resolve_standard(
             full_cov, 'cis kubernetes benchmark v1.7.0'
@@ -133,7 +137,10 @@ def test_build_rows_aggregates_regions_with_failure_precedence():
         metadata=metadata,
         cloud=Cloud.AWS,
         standard=_STANDARD,
-        full_controls={'1.1': 3, '1.2': 1},
+        full_controls={
+            '1.1': CoverageControl(total_rules=3, control_title=''),
+            '1.2': CoverageControl(total_rules=1, control_title=''),
+        },
     )
 
     assert [row.control_id for row in rows] == ['1.1', '1.2']
@@ -151,6 +158,32 @@ def test_build_rows_aggregates_regions_with_failure_precedence():
     assert second.not_evaluated_rules == ['rule-d']
     assert second.status is Status.NOT_EVALUATED
     assert second.coverage == 0.0
+
+
+def test_build_rows_uses_enriched_control_hierarchy_and_zero_rule_count():
+    rows = _handler().build_rows(
+        collection=ShardsCollectionFactory.from_cloud(Cloud.AWS),
+        metadata=_metadata({}),
+        cloud=Cloud.AWS,
+        standard=_STANDARD,
+        full_controls={
+            '1.1': CoverageControl(
+                total_rules=0,
+                control_title='Access control',
+                sections=[
+                    CoverageSection(id='1', title='Security'),
+                    CoverageSection(id='1.1', title='Identity'),
+                ],
+            )
+        },
+    )
+
+    assert len(rows) == 1
+    assert rows[0].control_title == 'Access control'
+    assert rows[0].section_id == '1'
+    assert rows[0].section_title == 'Security'
+    assert rows[0].sub_sections == [('1.1', 'Identity')]
+    assert rows[0].coverage == 0.0
 
 
 def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
@@ -179,7 +212,9 @@ def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
         metadata=metadata,
         cloud=Cloud.AWS,
         standard=_STANDARD,
-        full_controls={'1.1': 2},
+        full_controls={
+            '1.1': CoverageControl(total_rules=2, control_title='')
+        },
     )
 
     assert row.successful_rules == ['rule-a']
