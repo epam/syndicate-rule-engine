@@ -275,11 +275,23 @@ def test_layout_supports_injected_hierarchy():
         'Sub-section',
         'Sub-title',
         'Control',
+        'Control Title',
         'Severity',
         'Status',
-        'Control Title',
         'Coverage',
         'Rule IDs',
+    ]
+    assert layout.row_values(rows[0]) == [
+        '1',
+        'Section one',
+        '1.a',
+        'Sub one',
+        '1.1',
+        'Do the thing',
+        None,
+        Status.NOT_EVALUATED.value,
+        0.0,
+        None,
     ]
 
 

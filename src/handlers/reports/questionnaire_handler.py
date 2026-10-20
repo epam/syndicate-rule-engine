@@ -756,9 +756,10 @@ class SheetLayout:
         if self.with_sections:
             headers += [H_SECTION, H_TITLE]
         headers += self.sub_headers
-        headers += [H_CONTROL, H_SEVERITY, H_STATUS]
+        headers.append(H_CONTROL)
         if self.with_control_title:
             headers.append(H_CONTROL_TITLE)
+        headers += [H_SEVERITY, H_STATUS]
         headers += [H_COVERAGE, H_RULE_IDS]
         return headers
 
@@ -804,13 +805,13 @@ class SheetLayout:
                 else (None, None)
             )
             values.extend(pair)
+        values.append(row.control_id)
+        if self.with_control_title:
+            values.append(row.control_title or None)
         values += [
-            row.control_id,
             row.severity or None,
             row.status.value,
         ]
-        if self.with_control_title:
-            values.append(row.control_title or None)
         values += [row.coverage, row.rule_short_ids or None]
         return values
 
