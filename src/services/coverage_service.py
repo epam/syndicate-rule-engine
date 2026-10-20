@@ -126,7 +126,7 @@ def calculate_controls_coverages(
     for control, control_data in total.items():
         total_n = control_data.total_rules
         if total_n <= 0:
-            res[control] = 0.0
+            # currently we calculate coverage only for controls that have at least one rule
             continue
         successful_n = successful.get(control)
         if successful_n:
