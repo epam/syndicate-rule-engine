@@ -68,7 +68,7 @@ class LoadBalancerBackendSslPolicy(ChildResourceManager):
 class LoadBalancerTargetHttpsProxySslPolicy(ChildResourceManager):
     """
     GC resource: https://cloud.google.com/compute/docs/reference/rest/v1/sslPolicies
-    Unlike loadbalancer-ssl-policy, returns only policies that are tied to
+    Unlike loadbalancer-target-https-proxy-ssl-policy, returns only policies that are tied to
     loadbalancer-target-https-proxy resources.
     """
 
