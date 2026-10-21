@@ -152,6 +152,8 @@ env:
     value: '{{ .Values.celery.schedule.assembleEvents }}'
   - name: SRE_CELERY_CLEAR_EVENTS_SCHEDULE
     value: '{{ .Values.celery.schedule.clearEvents }}'
+  - name: SRE_CELERY_PROCESS_PERIODIC_RULES_SCHEDULE
+    value: '{{ .Values.celery.schedule.processPeriodicRules }}'
   - name: SRE_CC_LOG_LEVEL
     value: {{ .Values.executorCCLogLevel }}
   {{- if .Values.executorLogsFilename }}
