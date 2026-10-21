@@ -1,6 +1,9 @@
 from http import HTTPStatus
-from typing import Any
+from io import BytesIO
+from typing import Any, Literal
 
+from modular_sdk.commons.constants import ParentType
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.tenant_service import TenantService
 from typing_extensions import Self
 
@@ -12,16 +15,25 @@ from helpers.constants import (
     JobState,
     ReportFormat,
 )
-from helpers.lambda_response import LambdaOutput, build_response
+from helpers.lambda_response import (
+    LambdaOutput,
+    ResponseFactory,
+    build_response,
+)
 from models.job import Job
 from services import SP, modular_helpers, obfuscation
+from services.control_plane_report import (
+    ControlPlaneReportError,
+    ControlPlaneReportService,
+)
 from services.job_service import JobService
 from services.modular_helpers import tenant_cloud
-from services.platform_service import PlatformService
+from services.platform_service import Platform, PlatformService
 from services.report_convertors import ShardsCollectionFindingsConvertor
 from services.report_service import ReportResponse, ReportService
 from services.sharding import ShardsCollection
 from validators.swagger_request_models import (
+    ControlPlaneJobReportGetModel,
     JobFindingsReportGetModel,
     TenantJobsFindingsReportGetModel,
 )
@@ -35,11 +47,13 @@ class FindingsReportHandler(AbstractHandler):
         report_service: ReportService,
         tenant_service: TenantService,
         platform_service: PlatformService,
+        control_plane_report_service: ControlPlaneReportService,
     ) -> None:
         self._job_service = job_service
         self._rs = report_service
         self._ts = tenant_service
         self._platform_service = platform_service
+        self._control_plane_report_service = control_plane_report_service
 
     @classmethod
     def build(cls) -> Self:
@@ -48,6 +62,7 @@ class FindingsReportHandler(AbstractHandler):
             report_service=SP.report_service,
             tenant_service=SP.modular_client.tenant_service(),
             platform_service=SP.platform_service,
+            control_plane_report_service=SP.control_plane_report_service,
         )
 
     @property
@@ -57,19 +72,107 @@ class FindingsReportHandler(AbstractHandler):
             Endpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS: {
                 HTTPMethod.GET: self.get_by_tenant_jobs
             },
-            # '/reports/findings/platforms/k8s/{platform_id}/state/latest': {
-            #     HTTPMethod.GET: self.k8s_platform_get_latest
-            # },
-            # '/reports/findings/tenants/{tenant_name}/state/latest': {
-            #     HTTPMethod.GET: self.get_latest
-            # },
+            Endpoint.REPORTS_FINDINGS_JOBS_JOB_ID_CONTROL_PLANE: {
+                HTTPMethod.GET: self.get_control_plane_by_job
+            },
         }
 
-    # def k8s_platform_get_latest(self, event):
-    #     pass
-    #
-    # def get_latest(self, event):
-    #     pass
+    @validate_kwargs
+    def get_control_plane_by_job(
+        self, event: ControlPlaneJobReportGetModel, job_id: str
+    ):
+        job = self._job_service.get_nullable(job_id)
+        if not job:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                f'Job {job_id!r} not found'
+            ).exc()
+
+        platform_id = job.platform_id
+        if not platform_id:
+            raise ResponseFactory(HTTPStatus.BAD_REQUEST).message(
+                'Job is not a Kubernetes platform job'
+            ).exc()
+
+        platform = self._platform_service.get_nullable(platform_id)
+        if not platform:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                f'Kubernetes platform {platform_id!r} not found'
+            ).exc()
+
+        tenant = self._ts.get(platform.tenant_name)
+        tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
+
+        if platform.customer != tenant.customer_name:
+            raise ResponseFactory(HTTPStatus.NOT_FOUND).message(
+                f'Kubernetes platform {platform_id!r} not found'
+            ).exc()
+
+        collection = self._rs.platform_job_collection(platform, job)
+        collection.meta = self._rs.fetch_meta(platform)
+        collection.fetch_all()
+
+        report = self._make_control_plane_report(
+            job_id=job.id,
+            platform=platform,
+            tenant_name=tenant.name,
+            customer_name=tenant.customer_name,
+            collection=collection,
+            fmt=event.format,
+            obfuscated=event.obfuscated,
+            href=event.href,
+        )
+        return build_response(content=report)
+
+    def _make_control_plane_report(
+        self,
+        job_id: str,
+        platform: Platform,
+        tenant_name: str,
+        customer_name: str,
+        collection: ShardsCollection,
+        fmt: Literal['md', 'json'],
+        obfuscated: bool,
+        href: bool = False,
+    ) -> dict[str, Any]:
+        dictionary_url = None
+        if obfuscated:
+            dictionary = obfuscation.get_obfuscation_dictionary(collection)
+            if dictionary:
+                dictionary_url = self._rs.one_time_url_json(
+                    dictionary, filename='dictionary.json'
+                )
+
+        try:
+            content = self._control_plane_report_service.generate_report(
+                collection, customer_name, fmt
+            )
+        except ControlPlaneReportError as error:
+            raise (
+                ResponseFactory(HTTPStatus.BAD_REQUEST)
+                .message(str(error))
+                .exc()
+            ) from error
+        report = {
+            'job_id': job_id,
+            'platform_id': platform.id,
+            'tenant_name': tenant_name,
+            'customer_name': customer_name,
+            'format': fmt,
+            'obfuscated': obfuscated,
+        }
+        if href or fmt == 'md':
+            filename = f'{job_id}-control-plane-findings.{fmt}'
+            if isinstance(content, str):
+                report['url'] = self._rs.one_time_url(
+                    BytesIO(content.encode('utf-8')), filename
+                )
+            else:
+                report['url'] = self._rs.one_time_url_json(content, filename)
+        else:
+            report['content'] = content
+        if dictionary_url:
+            report['dictionary_url'] = dictionary_url
+        return report
 
     @validate_kwargs
     def get_by_job(self, event: JobFindingsReportGetModel, job_id: str):

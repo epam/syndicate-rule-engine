@@ -716,6 +716,48 @@ class MultipleJobReportModel(BaseModel):
     items: list[BaseReportJob]
 
 
+class ControlPlaneResourceModel(BaseModel):
+    name: str | None
+    namespace: str | None
+    node_name: str | None
+    host_ip: str | None
+    phase: str | None
+
+
+class ControlPlaneCheckModel(BaseModel):
+    check: int
+    title: str
+    rule_id: str
+    rule_name: str
+    severity: str
+    resources: list[ControlPlaneResourceModel]
+
+
+class ControlPlaneSectionModel(BaseModel):
+    name: str
+    checks: list[ControlPlaneCheckModel]
+
+
+class ControlPlaneReportContentModel(BaseModel):
+    sections: list[ControlPlaneSectionModel]
+
+
+class ControlPlaneReportModel(BaseModel):
+    job_id: str | None = None
+    platform_id: str
+    tenant_name: str
+    customer_name: str
+    format: Literal['md', 'json']
+    content: ControlPlaneReportContentModel | str | None = None
+    url: str | None = None
+    obfuscated: bool
+    dictionary_url: str | None = None
+
+
+class SingleControlPlaneReportModel(BaseModel):
+    data: ControlPlaneReportModel
+
+
 class SingleEntityReportModel(BaseModel):
     data: BaseReportEntity
 

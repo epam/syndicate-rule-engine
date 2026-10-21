@@ -925,6 +925,14 @@ class SREApiClient:
             query=sifted(kwargs),
         )
 
+    def report_findings_control_plane_job(self, job_id, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_FINDINGS_JOBS_JOB_ID_CONTROL_PLANE,
+            path_params={'job_id': job_id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
     def report_findings_tenants(self, tenant_name, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_FINDINGS_TENANTS_TENANT_NAME_JOBS,
