@@ -1603,6 +1603,10 @@ class McpAuthSettingPatchModel(BaseModel):
 
 
 # reports
+class DashboardReportGetModel(BaseModel):
+    pass
+
+
 class JobFindingsReportGetModel(BaseModel):
     href: bool = False
     obfuscated: bool = False

@@ -13,6 +13,7 @@ from helpers.constants import (
 )
 from helpers.log_helper import get_logger
 from models import BaseModel
+from services.resources import CloudResource
 
 _LOG = get_logger(__name__)
 
@@ -135,6 +136,39 @@ class Resource(BaseModel):
     @property
     def cloud(self) -> Cloud:
         return Cloud.parse(self.resource_type.split('.')[0].upper(), safe=False)
+
+    def to_cloud_resource(self) -> CloudResource:
+        from services.resources import (
+            AWSResource,
+            AZUREResource,
+            GOOGLEResource,
+            K8SResource,
+        )
+
+        fields = {
+            'id': self.id,
+            'name': self.name or self.id,
+            'resource_type': self.resource_type,
+            'sync_date': self.sync_date,
+            'data': self.data,
+        }
+        match self.cloud:
+            case Cloud.AWS:
+                return AWSResource(
+                    region=self.location, arn=self.arn, date=None, **fields
+                )
+            case Cloud.AZURE:
+                return AZUREResource(location=self.location, **fields)
+            case Cloud.GOOGLE | Cloud.GCP:
+                return GOOGLEResource(
+                    location=self.location, urn=self.arn, **fields
+                )
+            case Cloud.KUBERNETES | Cloud.K8S:
+                return K8SResource(
+                    location=self.location, namespace=self.namespace, **fields
+                )
+            case _:
+                raise ValueError(f'Unsupported resource cloud: {self.cloud}')
 
     @property
     def collector_type(self) -> ResourcesCollectorType:

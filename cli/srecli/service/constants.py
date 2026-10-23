@@ -75,6 +75,10 @@ class Endpoint(str, Enum):
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
     REPORTS_STATUS = '/reports/status'
+    REPORTS_DASHBOARD_JOBS_JOB_ID = '/reports/dashboard/jobs/{job_id}'
+    REPORTS_DASHBOARD_TENANTS_TENANT_NAME = (
+        '/reports/dashboard/tenants/{tenant_name}'
+    )
     REPORTS_PROJECT = '/reports/project'
     USERS_USERNAME = '/users/{username}'
     CREDENTIALS_ID = '/credentials/{id}'
