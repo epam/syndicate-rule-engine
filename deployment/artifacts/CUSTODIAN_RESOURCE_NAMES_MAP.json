@@ -449,6 +449,8 @@
     "gcp.loadbalancer-backend-bucket" : "Load Balancer Bucket",
     "gcp.loadbalancer-backend-frontend-ssl" : "Load Balancer SSL Binding",
     "gcp.loadbalancer-backend-service" : "Load Balancer Backend Service",
+    "gcp.loadbalancer-backend-ssl-policy": "Load Balancer Backend SSL Policy",
+    "gcp.loadbalancer-backend-target-https-proxy": "Load Balancer Backend HTTPS Proxy",
     "gcp.loadbalancer-ssl-certificate" : "Load Balancer SSL Certificate",
     "gcp.loadbalancer-ssl-policy" : "Load Balancer SSL Policy",
     "gcp.loadbalancer-target-https-proxy" : "Load Balancer HTTPS Proxy",
