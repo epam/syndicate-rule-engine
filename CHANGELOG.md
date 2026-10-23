@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GET /reports/compliance/tenants/{tenant_name}`
 - Added Kubernetes resources inventory collection: the inventory of each registered K8S
   platform is now collected alongside tenants' cloud resources by the resource collector
+- Added the `sre report dashboard` CLI command to generate an Excel dashboard for a scan job or tenant
 - Added a new endpoint `GET /platforms/k8s/{platform_id}/resources` that returns the
   collected inventory of a K8S platform (permission `platform_resources:get`).
   It is the only way to query K8S resources: `GET /resources` accepts no
