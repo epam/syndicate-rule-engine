@@ -1137,13 +1137,13 @@ def test_generate_delegates_rows_and_job_details(
     expected_details = {
         'Job ID': job.id,
         'Tenant name': aws_tenant.display_name,
-        'Cloud': keys.cloud.value,
+        'Platform': keys.cloud.value,
         'Submitted at': job.submitted_at,
         'Started at': job.started_at,
         'Finished at': job.stopped_at,
     }
     if is_platform:
-        expected_details['Platform'] = k8s_platform.description
+        expected_details['Platform ID'] = k8s_platform.description
         dependencies.platform_service.get_nullable.assert_called_once_with(
             hash_key=k8s_platform.id
         )
