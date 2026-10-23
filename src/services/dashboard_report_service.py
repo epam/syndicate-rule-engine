@@ -71,7 +71,7 @@ RAW_DATA_COLUMNS = {
     'Region (Namespace)': 'region_namespace',
     'Date': 'date',
     'Service': 'service',
-    'ServiceSection': 'service_section',
+    'ServiceCategory': 'service_section',
     'Category': 'category',
 }
 SHORT_RULE_ID_REGEX = re.compile(r'[^-]+-\d+(?=-|$)')
@@ -305,7 +305,7 @@ def fill_dashboard_template(
             (
                 'Job ID',
                 'Tenant name',
-                'Cloud',
+                'Platform',
                 'Submitted at',
                 'Started at',
                 'Finished at',
@@ -317,8 +317,8 @@ def fill_dashboard_template(
                 raise ValueError(
                     f'Introduction!B{row_number} must contain {label!r}'
                 )
-            if label == 'Account ID' and 'Platform' in job_details:
-                label = 'Platform'
+            if label == 'Account ID' and 'Platform ID' in job_details:
+                label = 'Platform ID'
                 introduction.cell(row_number, 2, label)
             value_cell = introduction.cell(row_number, 3, job_details[label])
             value_cell.data_type = 's'
@@ -713,14 +713,14 @@ class DashboardReportService:
         job_details = {
             'Job ID': job.id,
             'Tenant name': tenant.display_name or tenant.name,
-            'Cloud': keys_builder.cloud.value,
+            'Platform': keys_builder.cloud.value,
             'Submitted at': job.submitted_at or 'Not recorded',
             'Started at': job.started_at or 'Not recorded',
             'Finished at': job.stopped_at or 'Not recorded',
         }
 
         if job.is_platform_job:
-            job_details['Platform'] = platform.description
+            job_details['Platform ID'] = platform.description
         else:
             job_details['Account ID'] = tenant.project or 'Not recorded'
 
