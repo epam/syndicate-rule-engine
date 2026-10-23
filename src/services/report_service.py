@@ -16,7 +16,7 @@ from services.coverage_service import (
     calculate_controls_coverages,
 )
 from services.environment_service import EnvironmentService
-from services.metadata import Metadata
+from services.metadata import CoverageControl, Metadata
 from services.platform_service import Platform
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
@@ -400,7 +400,7 @@ class ReportService:
     @staticmethod
     def calculate_coverages(
         successful: dict[Standard, dict[str, int]],
-        full: dict[Standard, dict[str, int]],
+        full: dict[Standard, dict[str, CoverageControl]],
     ) -> dict[Standard, float]:
         res = {}
         for st in successful:

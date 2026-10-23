@@ -264,21 +264,21 @@
       {
         "Standard1": {
           "v1.0.0": {
-            "p1": 2,
-            "p2": 2,
-            "p3": 2
+            "p1": {"total_rules": 2, "control_title": "", "sections": []},
+            "p2": {"total_rules": 2, "control_title": "", "sections": []},
+            "p3": {"total_rules": 2, "control_title": "", "sections": []}
           },
           "v2.0.0": {
-            "p1": 2,
-            "p2": 2
+            "p1": {"total_rules": 2, "control_title": "", "sections": []},
+            "p2": {"total_rules": 2, "control_title": "", "sections": []}
           }
         },
         "Standard2": {
           "null": {
-            "p1": 2,
-            "p2": 1,
-            "p3": 1,
-            "p4": 1
+            "p1": {"total_rules": 2, "control_title": "", "sections": []},
+            "p2": {"total_rules": 1, "control_title": "", "sections": []},
+            "p3": {"total_rules": 1, "control_title": "", "sections": []},
+            "p4": {"total_rules": 1, "control_title": "", "sections": []}
           }
         }
       }
@@ -288,21 +288,21 @@
       {
         "Standard1": {
           "v1.0.0": {
-            "p1": 2,
-            "p2": 2,
-            "p3": 2
+            "p1": {"total_rules": 2, "control_title": "", "sections": []},
+            "p2": {"total_rules": 2, "control_title": "", "sections": []},
+            "p3": {"total_rules": 2, "control_title": "", "sections": []}
           },
           "v2.0.0": {
-            "p1": 2,
-            "p2": 2
+            "p1": {"total_rules": 2, "control_title": "", "sections": []},
+            "p2": {"total_rules": 2, "control_title": "", "sections": []}
           }
         },
         "Standard2": {
           "null": {
-            "p1": 2,
-            "p2": 1,
-            "p3": 1,
-            "p4": 1
+            "p1": {"total_rules": 2, "control_title": "", "sections": []},
+            "p2": {"total_rules": 1, "control_title": "", "sections": []},
+            "p3": {"total_rules": 1, "control_title": "", "sections": []},
+            "p4": {"total_rules": 1, "control_title": "", "sections": []}
           }
         }
       }

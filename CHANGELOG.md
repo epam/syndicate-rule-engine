@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.22.0] - 2026-XX-XX
 
 ### Added
+- Added support for extended domain coverage metadata in `tech_cov` and `full_cov`, including control titles and section hierarchy in questionnaire reports
 - Added an account level `total` coverage that combines all the regions to compliance reports:
   - `GET /reports/compliance/jobs/{job_id}`
   - `GET /reports/compliance/tenants/{tenant_name}`
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   collected inventory of a K8S platform (permission `platform_resources:get`).
   It is the only way to query K8S resources: `GET /resources` accepts no
   `platform_id`/`namespace` filters because those are indexed per platform
+- Added the ability to configure `SRE_CELERY_PROCESS_PERIODIC_RULES_SCHEDULE` via Helm chart values
 
 ### Fixed
 - Fixed the request validation for `POST /reports/push/dojo` endpoint

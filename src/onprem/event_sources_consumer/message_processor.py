@@ -1,7 +1,7 @@
 """
 Processes messages from event sources and ingests via EventIngestService.
 
-Supports the wrapped format documented in docs/event_driven.md:
+Supports the wrapped format documented in the "Event-Driven Scanning" section of docs/sre_user_guide.md:
   {"version": "1.0.0", "vendor": "<VENDOR>", "events": [...]}
 as well as raw EventBridge events ({"detail-type": ..., "detail": ...}).
 
@@ -44,7 +44,7 @@ class EventMessageProcessor:
         """Parse body, resolve vendor + events, ingest.
 
         If *vendor* is given (K8S watcher path), body is treated as raw event(s)
-        for that vendor. Otherwise the message must match ``docs/event_driven.md``.
+        for that vendor. Otherwise the message must match ``docs/sre_user_guide.md``.
         """
         body = self._parse_message_body(message.body)
         resolved_vendor, events = self._resolve_vendor_and_events(
@@ -90,7 +90,7 @@ class EventMessageProcessor:
     def _extract_wrapped_vendor_events(
         self, body: dict
     ) -> tuple[str | None, list[dict]]:
-        """``{vendor, events: [...]}`` wrapper from event_driven.md."""
+        """``{vendor, events: [...]}`` wrapper from docs/sre_user_guide.md."""
         vendor = body.get(self._WRAPPED_VENDOR_KEY)
         events = body.get(self._WRAPPED_EVENTS_KEY)
         if vendor and isinstance(events, list):
