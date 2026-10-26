@@ -30,3 +30,5 @@ tests
 obfuscator-cli
 !**/README.md
 !**/readme.md
+
+!deployment/artifacts/

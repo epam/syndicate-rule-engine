@@ -207,6 +207,17 @@ class RuleMetadata(
                     )
 
 
+class CoverageSection(msgspec.Struct, frozen=True, kw_only=True):
+    id: str
+    title: str | None = None
+
+
+class CoverageControl(msgspec.Struct, frozen=True, kw_only=True):
+    total_rules: int
+    control_title: str | None = None
+    sections: list[CoverageSection] = msgspec.field(default_factory=list)
+
+
 class DomainMetadata(
     msgspec.Struct, kw_only=True, array_like=True, frozen=True, eq=False
 ):
@@ -215,9 +226,12 @@ class DomainMetadata(
     LM and is stored
     """
 
-    # dict[Standard, dict[str, int]] after loading
-    tech_cov: dict = msgspec.field(default_factory=dict)
-    full_cov: dict = msgspec.field(default_factory=dict)
+    tech_cov: dict[str, dict[str, dict[str, CoverageControl]]] = msgspec.field(
+        default_factory=dict
+    )
+    full_cov: dict[str, dict[str, dict[str, CoverageControl]]] = msgspec.field(
+        default_factory=dict
+    )
 
     def __repr__(self) -> str:
         return (

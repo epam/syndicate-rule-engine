@@ -1067,6 +1067,18 @@ syndicate re report questionnaire jobs --job_id <job_id> --json
 syndicate re report questionnaire accumulated --tenant_name TENANT_1 --json
 ```
 
+### Dashboard Report
+
+Generate an Excel dashboard report for a scan job:
+
+```console
+syndicate re report dashboard --job_id <job_id> --json
+syndicate re report dashboard --tenant_name TENANT_1 --json
+```
+
+Specify exactly one of `--job_id` or `--tenant_name`. Tenant scope uses the
+latest successful scan. The command returns a temporary download URL for the generated `.xlsx` workbook.
+
 Other reports, such as `details`, `findings`, `rules`, `raw` and `digests`, are available under `syndicate re report --help`.
 
 ### Errors Report
@@ -1422,6 +1434,8 @@ Permission model is aligned with the API available for managing the system. This
 | GET /reports/compliance/tenants/{tenant_name} | report:get_tenant_compliance | Allows to get a compliance report by tenant |
 | GET /reports/questionnaire/jobs/{job_id} | report:get_job_questionnaire | Allows to get a standard questionnaire (xlsx) by job |
 | GET /reports/questionnaire/tenants/{tenant_name} | report:get_tenant_questionnaire | Allows to get a standard questionnaire (xlsx) by tenant |
+| GET /reports/dashboard/jobs/{job_id} | report:get_dashboard | Generates an Excel dashboard for a scan job |
+| GET /reports/dashboard/tenants/{tenant_name} | report:get_dashboard | Generates an Excel dashboard for the latest successful tenant scan |
 | GET /reports/errors/jobs/{job_id} | report:get_job_errors | Allows to get errors occurred during a job |
 | GET /reports/rules/jobs/{job_id} | report:get_job_rules | Allows to get information about rules executed during a job |
 | GET /reports/rules/tenants/{tenant_name} | report:get_tenant_rules | Allows to get average rules data by latest tenant jobs |

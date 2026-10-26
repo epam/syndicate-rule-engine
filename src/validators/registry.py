@@ -14,6 +14,7 @@ from validators.swagger_request_models import (
     CredentialsQueryModel,
     CustomerExcludedRulesPutModel,
     CustomerGetModel,
+    DashboardReportGetModel,
     DefectDojoActivationPutModel,
     DefectDojoPostModel,
     DefectDojoQueryModel,
@@ -1126,6 +1127,26 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, MultipleJobReportModel, None)],
         permission=Permission.REPORT_FINDINGS_DESCRIBE,
         description='Allows to get findings by latest jobs of a tenant',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_DASHBOARD_JOBS_JOB_ID,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=DashboardReportGetModel,
+        responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
+        permission=Permission.REPORT_DASHBOARD,
+        description='Generates an Excel dashboard for a scan job',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_DASHBOARD_TENANTS_TENANT_NAME,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=DashboardReportGetModel,
+        responses=[(HTTPStatus.OK, SingleEntityReportModel, None)],
+        permission=Permission.REPORT_DASHBOARD,
+        description=(
+            'Generates an Excel dashboard for the latest successful tenant scan'
+        ),
     ),
     # compliance reports
     EndpointInfo(

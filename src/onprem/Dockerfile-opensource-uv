@@ -13,6 +13,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-editable --group=c7n --group=event-sources-consumer --compile-bytecode
 
 COPY src /src/
+COPY deployment/artifacts /deployment/artifacts/
 RUN chmod +x /src/entrypoint.sh /src/main.py && \
     rm -f /src/executor/Dockerfile* /src/executor/requirements.txt /src/onprem/Dockerfile* /src/onprem/requirements.txt /src/uv.lock /src/pyproject.toml && \
     mv /src/.venv /venv
@@ -28,6 +29,7 @@ RUN groupadd --gid=1337 $USERNAME && \
 COPY --from=builder --chown=$USERNAME:$USERNAME /venv /src/.venv
 # App code — small layer, fast when entrypoint/main.py/etc change
 COPY --from=builder --chown=$USERNAME:$USERNAME /src /src
+COPY --from=builder --chown=$USERNAME:$USERNAME /deployment/artifacts /deployment/artifacts
 
 WORKDIR /src
 USER $USERNAME

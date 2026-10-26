@@ -941,6 +941,22 @@ class SREApiClient:
             query=sifted(kwargs),
         )
 
+    def report_dashboard_job(self, job_id: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_DASHBOARD_JOBS_JOB_ID,
+            path_params={'job_id': job_id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def report_dashboard_tenant(self, tenant_name: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_DASHBOARD_TENANTS_TENANT_NAME,
+            path_params={'tenant_name': tenant_name},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
     def report_compliance_jobs(self, job_id, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID,

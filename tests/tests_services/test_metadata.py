@@ -2,6 +2,7 @@ import random
 from datetime import date
 
 import msgspec
+import pytest
 
 from helpers.constants import Severity
 from services.metadata import (
@@ -21,6 +22,43 @@ def test_merge_metadata(load_metadata):
     result = merge_metadata(one, two, three)
     assert len(result.rules) == 13
     assert len(result.domains) == 3
+
+
+def test_extended_domain_metadata_uses_named_coverage_fields():
+    metadata = msgspec.convert(
+        {
+            'domains': {
+                'AWS': [
+                    {},
+                    {
+                        'Standard': {
+                            'v1': {
+                                '1.1': {
+                                    'total_rules': 0,
+                                    'control_title': 'Access control',
+                                    'sections': [],
+                                }
+                            }
+                        }
+                    },
+                ]
+            }
+        },
+        type=Metadata,
+    )
+
+    domain = metadata.domain('AWS')
+    standard = next(iter(domain.full_cov))
+    assert domain.full_cov[standard]['1.1'].total_rules == 0
+    assert domain.tech_cov == {}
+
+
+def test_legacy_domain_metadata_is_rejected():
+    with pytest.raises(msgspec.ValidationError):
+        msgspec.convert(
+            {'domains': {'AWS': [{}, {'Standard': {'v1': {'1.1': 1}}}]}},
+            type=Metadata,
+        )
 
 
 class TestDeprecation:

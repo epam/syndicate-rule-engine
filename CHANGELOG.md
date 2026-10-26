@@ -8,17 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.22.0] - 2026-XX-XX
 
 ### Added
-- Added a Kubernetes Control Plane findings report for platform scan jobs:
-  `GET /reports/findings/jobs/{job_id}/control-plane`
+- Added support for extended domain coverage metadata in `tech_cov` and `full_cov`, including control titles and section hierarchy in questionnaire reports
 - Added an account level `total` coverage that combines all the regions to compliance reports:
   - `GET /reports/compliance/jobs/{job_id}`
   - `GET /reports/compliance/tenants/{tenant_name}`
 - Added Kubernetes resources inventory collection: the inventory of each registered K8S
   platform is now collected alongside tenants' cloud resources by the resource collector
+- Added the `sre report dashboard` CLI command to generate an Excel dashboard for a scan job or tenant
 - Added a new endpoint `GET /platforms/k8s/{platform_id}/resources` that returns the
   collected inventory of a K8S platform (permission `platform_resources:get`).
   It is the only way to query K8S resources: `GET /resources` accepts no
   `platform_id`/`namespace` filters because those are indexed per platform
+- Added the ability to configure `SRE_CELERY_PROCESS_PERIODIC_RULES_SCHEDULE` via Helm chart values
+- Added a Kubernetes Control Plane findings report for platform scan jobs:
+  - `GET /reports/findings/jobs/{job_id}/control-plane`
 
 ### Fixed
 - Fixed the request validation for `POST /reports/push/dojo` endpoint

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from services.clients.ssm import CachedSSMClient
     from services.clients.sts import StsClient
     from services.control_plane_report import ControlPlaneReportService
+    from services.dashboard_report_service import DashboardReportService
     from services.defect_dojo_service import DefectDojoService
     from services.environment_service import EnvironmentService
     from services.event_driven import (
@@ -268,6 +269,19 @@ class ServiceProvider(metaclass=SingletonMeta):
         return ReportService(
             s3_client=self.s3,
             environment_service=self.environment_service,
+        )
+
+    @cached_property
+    def dashboard_report_service(self) -> DashboardReportService:
+        from services.dashboard_report_service import DashboardReportService
+
+        return DashboardReportService(
+            s3_client=self.s3,
+            environment_service=self.environment_service,
+            license_service=self.license_service,
+            resources_service=self.resources_service,
+            platform_service=self.platform_service,
+            settings_service=self.settings_service,
         )
 
     @cached_property

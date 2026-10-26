@@ -5,7 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [5.22.0] - 2026-XX-XX
+
 ### Added
+- Added `sre report dashboard` to generate an Excel dashboard report for a scan job
 - Added `sre report findings k8s_control` to generate Kubernetes Control Plane findings reports in Markdown or JSON for a platform scan job
 
 ### Changed
