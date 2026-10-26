@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from services.clients.s3 import ModularAssumeRoleS3Service, S3Client
     from services.clients.ssm import CachedSSMClient
     from services.clients.sts import StsClient
+    from services.control_plane_report import ControlPlaneReportService
     from services.dashboard_report_service import DashboardReportService
     from services.defect_dojo_service import DefectDojoService
     from services.environment_service import EnvironmentService
@@ -281,6 +282,14 @@ class ServiceProvider(metaclass=SingletonMeta):
             resources_service=self.resources_service,
             platform_service=self.platform_service,
             settings_service=self.settings_service,
+        )
+
+    @cached_property
+    def control_plane_report_service(self) -> ControlPlaneReportService:
+        from services.control_plane_report import ControlPlaneReportService
+
+        return ControlPlaneReportService(
+            license_service=self.license_service
         )
 
     @cached_property

@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It is the only way to query K8S resources: `GET /resources` accepts no
   `platform_id`/`namespace` filters because those are indexed per platform
 - Added the ability to configure `SRE_CELERY_PROCESS_PERIODIC_RULES_SCHEDULE` via Helm chart values
+- Added a Kubernetes Control Plane findings report for platform scan jobs:
+  - `GET /reports/findings/jobs/{job_id}/control-plane`
 
 ### Fixed
 - Fixed the request validation for `POST /reports/push/dojo` endpoint

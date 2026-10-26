@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added `sre report dashboard` to generate an Excel dashboard report for a scan job
+- Added `sre report findings k8s_control` to generate Kubernetes Control Plane findings reports in Markdown or JSON for a platform scan job
 
 ### Changed
 - Added the confirmation flag to all destructive CLI commands:
