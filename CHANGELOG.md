@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.22.0] - 2026-XX-XX
 
 ### Added
+- Added a Kubernetes Control Plane findings report for platform scan jobs:
+  `GET /reports/findings/jobs/{job_id}/control-plane`
 - Added an account level `total` coverage that combines all the regions to compliance reports:
   - `GET /reports/compliance/jobs/{job_id}`
   - `GET /reports/compliance/tenants/{tenant_name}`

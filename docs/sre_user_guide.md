@@ -1077,6 +1077,52 @@ If you want to look at Access Denied errors during the scan you can generate err
 syndicate re report errors jobs --job_id d9db86d6-a8fb-4383-8204-14961a90b8d4 --error_type ACCESS
 ```
 
+### Kubernetes Control Plane Report
+
+Generate a control plane findings report for a Kubernetes platform scan by
+providing its job ID:
+
+```console
+syndicate re report findings k8s_control --job_id <job_id>
+```
+
+The corresponding API endpoint is:
+
+```http
+GET /reports/findings/jobs/{job_id}/control-plane
+```
+
+It accepts these optional query parameters:
+
+| Parameter | Values | Default | Description |
+|-----------|--------|---------|-------------|
+| `format` | `md`, `json` | `md` | Report format |
+| `href` | `true`, `false` | `false` | Return a presigned URL instead of inline JSON content |
+| `obfuscated` | `true`, `false` | `false` | Obfuscate resource details; the response may include a dictionary URL |
+
+Markdown reports are returned as a presigned download URL. JSON is returned
+inline by default; set `href=true` to receive it as a presigned download.
+The report groups checks under **API Server**, **Controller Manager**,
+**etcd** and **Scheduler**, and lists affected resources for each check.
+
+For example, request an inline JSON report:
+
+```http
+GET /reports/findings/jobs/{job_id}/control-plane?format=json
+```
+
+The CLI supports the same options:
+
+```console
+syndicate re report findings k8s_control \
+  --job_id <job_id> \
+  --format json \
+  --json
+```
+
+Use `--href` to return a presigned URL for a JSON report instead of its inline
+content, or `--obfuscated` to obfuscate resource details.
+
 ## Integrations
 
 ### DefectDojo Integration
@@ -1370,6 +1416,7 @@ Permission model is aligned with the API available for managing the system. This
 | GET /reports/details/jobs/{job_id} | report:get_details | Allows to get a detailed report by job id |
 | GET /reports/details/tenants/{tenant_name}/jobs | report:get_details | Allows to get multiple detailed reports by tenant latest jobs |
 | GET /reports/findings/jobs/{job_id} | report:get_findings | Allows to get findings by job id |
+| GET /reports/findings/jobs/{job_id}/control-plane | report:get_findings | Allows to get Kubernetes control plane findings by job id |
 | GET /reports/findings/tenants/{tenant_name}/jobs | report:get_findings | Allows to get findings by latest jobs of a tenant |
 | GET /reports/compliance/jobs/{job_id} | report:get_job_compliance | Allows to get compliance report by a job |
 | GET /reports/compliance/tenants/{tenant_name} | report:get_tenant_compliance | Allows to get a compliance report by tenant |
