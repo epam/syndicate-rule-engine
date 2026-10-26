@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the request validation for `POST /reports/push/dojo` endpoint
 
 ### Changed
+- Deprecated rules now keep their rule IDs and are identified by a `[DEPRECATED]` description prefix in reports and metrics
 - Added a report type suffix to presigned report download filenames
 - Updated versions of dependencies:
     - `boto3` from `~=1.43.3` to `~=1.43.78`

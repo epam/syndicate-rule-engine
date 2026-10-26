@@ -1618,9 +1618,6 @@ class ResourcesCollectorType(str, Enum):
     CUSTODIAN = 'cloud_custodian'
 
 
-DEPRECATED_RULE_SUFFIX = '-deprecated'
-
-
 class ResourceExceptionType(str, Enum):
     """
     Types of resource exceptions
