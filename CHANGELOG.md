@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `pydantic` from `~=2.13.4` to `~=2.13.5`
     - `requests` from `~=2.33.1` to `~=2.34.2`
 - Use dashes instead of underscores in main.py arguments
+- Improve `next_token` field validation to prevent 500 response status code
 
 ## [5.21.0] - 2026-09-08
 
@@ -68,7 +69,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migrated `redis` to `valkey` as Celery broker/result backend and cache
 - Add error types statistics to job warnings 
 - Clarify the job failure reason when all policies failed with the same error type
-- Improve next_token field validation to prevent 500 response status code
 
 ### Removed 
 - Removed `job_type` request field from report endpoints that already target a specific `job_id`:
