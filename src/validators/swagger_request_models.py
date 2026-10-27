@@ -89,7 +89,14 @@ class BasePaginationModel(BaseModel):
     @field_validator('next_token', mode='after')
     @classmethod
     def _validate_next_token(cls, next_token):
-        NextToken.deserialize(next_token)
+        decoded = NextToken.deserialize(next_token)
+        if not next_token or not decoded.value:
+            return next_token
+
+        if not isinstance(decoded.value, int):
+            raise ValueError(
+                'Failed to deserialize next_token: invalid or malformed token.'
+            )
         return next_token
 
 
