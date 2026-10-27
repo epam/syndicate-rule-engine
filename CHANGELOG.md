@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `pydantic` from `~=2.13.4` to `~=2.13.5`
     - `requests` from `~=2.33.1` to `~=2.34.2`
 - Use dashes instead of underscores in main.py arguments
+- Improve `next_token` field validation to prevent 500 response status code
 
 ## [5.21.0] - 2026-09-08
 
