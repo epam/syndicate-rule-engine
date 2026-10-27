@@ -21,7 +21,6 @@ from services.metadata import CoverageControl, CoverageSection, Metadata
 from services.report_service import ReportService
 from services.sharding import ShardPart, ShardsCollectionFactory
 
-
 _STANDARD = Standard('CIS Kubernetes Benchmark', 'v1.7.0')
 
 
@@ -61,7 +60,7 @@ def test_mapping_keeps_rules_and_selects_highest_cloud_severity():
     )
 
     result = QuestionnaireHandler.build_standard_control_to_rule_names(
-        metadata=metadata, cloud=Cloud.AWS
+        metadata=metadata, cloud=Cloud.AWS, rule_descriptions={}
     )
 
     assert result == {
@@ -81,8 +80,8 @@ def test_mapping_sets_deprecated_rules_apart():
     metadata = _metadata(
         {
             'rule-low': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
-            'rule-high-deprecated': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
-            # only looks for deprecated things, the suffix check must keep it
+            'rule-high': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
+            'rule-high-deprecated': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
             'rule-deprecated-runtime': _rule(
                 Cloud.AWS, Severity.MEDIUM, ['1.1']
             ),
@@ -90,11 +89,21 @@ def test_mapping_sets_deprecated_rules_apart():
     )
 
     control = QuestionnaireHandler.build_standard_control_to_rule_names(
-        metadata=metadata, cloud=Cloud.AWS
+        metadata=metadata,
+        cloud=Cloud.AWS,
+        rule_descriptions={
+            'rule-high': '[DEPRECATED] Old rule description',
+            'rule-high-deprecated': 'A legacy-suffixed name without the marker',
+            'rule-deprecated-runtime': 'Runtime deprecation status is checked',
+        },
     )[_STANDARD.name][_STANDARD.version_str]['1.1']
 
-    assert control['rules'] == ['rule-low', 'rule-deprecated-runtime']
-    assert control['deprecated'] == ['rule-high-deprecated']
+    assert control['rules'] == [
+        'rule-low',
+        'rule-high-deprecated',
+        'rule-deprecated-runtime',
+    ]
+    assert control['deprecated'] == ['rule-high']
     # the severity of a deprecated rule must not leak into the control
     assert control['severity'] is Severity.MEDIUM
 
@@ -193,7 +202,7 @@ def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
             ShardPart(policy='rule-a', location='eu-west-1', resources=[]),
             # deprecated and failing: must not turn the control into Fail
             ShardPart(
-                policy='rule-b-deprecated',
+                policy='rule-b',
                 location='eu-west-1',
                 resources=[{}],
             ),
@@ -202,9 +211,13 @@ def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
     metadata = _metadata(
         {
             'rule-a': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
-            'rule-b-deprecated': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
+            'rule-b': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
         }
     )
+    collection.meta = {
+        'rule-a': {'description': 'Regular rule'},
+        'rule-b': {'description': '[DEPRECATED] Retired rule'},
+    }
 
     # full_cov comes from LM and counts the deprecated rule as well
     (row,) = _handler().build_rows(
@@ -395,6 +408,3 @@ def test_filenames_follow_the_agreed_format():
         'accumulated-cis_kubernetes_benchmark_v1_7_0-MY-TENANT'
         '-questionnaire.xlsx'
     )
-
-
-

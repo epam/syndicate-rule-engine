@@ -86,7 +86,6 @@ from typing_extensions import Self
 from handlers import AbstractHandler, Mapping
 from helpers import deep_get
 from helpers.constants import (
-    DEPRECATED_RULE_SUFFIX,
     Cloud,
     Endpoint,
     HTTPMethod,
@@ -96,6 +95,7 @@ from helpers.constants import (
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.reports import Standard
+from helpers.rules import is_deprecated_rule_description
 from services import SP, modular_helpers
 from services.coverage_service import calculate_controls_coverages
 from services.job_service import JobService
@@ -204,11 +204,6 @@ def slugify(value: str) -> str:
 def short_job_id(job_id: str) -> str:
     """Last segment of the job UUID, i.e. '...-9f2c1d4e' -> '9f2c1d4e'."""
     return job_id.rsplit('-', maxsplit=1)[-1]
-
-
-def is_deprecated_rule(rule_name: str) -> bool:
-    # TODO: update when rule deprecation logic changes
-    return rule_name.endswith(DEPRECATED_RULE_SUFFIX)
 
 
 class ReportScope(str, Enum):
@@ -1301,7 +1296,7 @@ class QuestionnaireHandler(AbstractHandler):
 
     @staticmethod
     def build_standard_control_to_rule_names(
-        metadata: Metadata, cloud: Cloud
+        metadata: Metadata, cloud: Cloud, rule_descriptions: dict[str, str | None]
     ) -> dict:
         """
         standard name -> version -> control -> {'rules': [...],
@@ -1324,7 +1319,9 @@ class QuestionnaireHandler(AbstractHandler):
         for rule_name, rule_metadata in metadata.rules.items():
             if rule_metadata.cloud != cloud:
                 continue
-            deprecated = is_deprecated_rule(rule_name)
+            deprecated = is_deprecated_rule_description(
+                rule_descriptions.get(rule_name)
+            )
             rule_sev = rule_metadata.severity
             for standard, versions in rule_metadata.standard.items():
                 std_map = result.setdefault(standard, {})
@@ -1354,7 +1351,12 @@ class QuestionnaireHandler(AbstractHandler):
         full_controls: dict[str, CoverageControl],
     ) -> list[ControlRow]:
         control_to_rules = self.build_standard_control_to_rule_names(
-            metadata=metadata, cloud=cloud
+            metadata=metadata,
+            cloud=cloud,
+            rule_descriptions={
+                rule_name: rule_meta.get('description')
+                for rule_name, rule_meta in collection.meta.items()
+            },
         )
         successful_rules, failed_rules = set(), set()
         for part in collection.iter_parts():
