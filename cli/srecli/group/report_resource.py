@@ -8,9 +8,11 @@ from srecli.group import (
     ContextObj,
     ViewCommand,
     build_job_id_option,
+    build_limit_option,
     build_tenant_option,
     cli_response,
     from_date_report_option,
+    next_option,
     optional_job_type_option,
     to_date_report_option,
 )
@@ -166,6 +168,8 @@ def platform_latest(
               help='Resource name')
 @click.option('--arn', required=False, type=str,
               help='Resource arn, only for aws')
+@build_limit_option(help='Number of jobs to show')
+@next_option
 @cli_response()
 def jobs(
     ctx: ContextObj,
@@ -182,6 +186,8 @@ def jobs(
     name: Optional[str],
     arn: Optional[str],
     customer_id,
+    limit: int,
+    next_token: str | None,
 ) -> SREResponse:
     """
     Resource report for tenant jobs
@@ -201,7 +207,9 @@ def jobs(
         id=id,
         name=name,
         arn=arn,
-        customer_id=customer_id
+        customer_id=customer_id,
+        limit=limit,
+        next_token=next_token,
     )
 
 

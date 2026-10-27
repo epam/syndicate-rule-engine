@@ -5,7 +5,9 @@ import click
 
 from srecli.group import (
     build_job_id_option,
+    build_limit_option,
     from_date_report_option,
+    next_option,
     optional_job_type_option,
     to_date_report_option,
 )
@@ -24,6 +26,8 @@ def digests():
 @tenant_option
 @from_date_report_option
 @to_date_report_option
+@build_limit_option(help='Number of jobs to show')
+@next_option
 @cli_response()
 def jobs(
     ctx: ContextObj,
@@ -33,6 +37,8 @@ def jobs(
     to_date: Optional[datetime],
     job_types: tuple[str, ...],
     customer_id: str | None,
+    limit: int,
+    next_token: str | None,
 ):
     """
     Describes summary reports of jobs
@@ -54,5 +60,7 @@ def jobs(
         job_types=job_types,
         start_iso=from_date,
         end_iso=to_date,
-        customer_id=customer_id
+        customer_id=customer_id,
+        limit=limit,
+        next_token=next_token,
     )
