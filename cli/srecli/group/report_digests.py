@@ -5,11 +5,11 @@ import click
 
 from srecli.group import (
     build_job_id_option,
-    build_limit_option,
     from_date_report_option,
     next_option,
     optional_job_type_option,
     to_date_report_option,
+    report_limit_option,
 )
 from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.group import tenant_option
@@ -29,7 +29,7 @@ def digests():
 @to_date_report_option
 @click.option('--href', '-hf', is_flag=True,
               help='Return presigned URL instead of inline payload')
-@build_limit_option(help='Number of jobs to show')
+@report_limit_option
 @next_option
 @cli_response()
 @presigned_url_hints_pack

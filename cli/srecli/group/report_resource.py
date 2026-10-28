@@ -8,13 +8,13 @@ from srecli.group import (
     ContextObj,
     ViewCommand,
     build_job_id_option,
-    build_limit_option,
     build_tenant_option,
     cli_response,
     from_date_report_option,
     next_option,
     optional_job_type_option,
     to_date_report_option,
+    report_limit_option,
 )
 from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
@@ -170,7 +170,7 @@ def platform_latest(
               help='Resource arn, only for aws')
 @click.option('--href', '-hf', is_flag=True,
               help='Return presigned URL per job instead of inline payload')
-@build_limit_option(help='Number of jobs to show')
+@report_limit_option
 @next_option
 @cli_response()
 @presigned_url_hints_pack
