@@ -1,3 +1,4 @@
+import json
 from io import BytesIO
 from types import SimpleNamespace
 from typing import cast
@@ -17,7 +18,12 @@ from handlers.reports.questionnaire_handler import (
 )
 from helpers.constants import Cloud, Severity
 from helpers.reports import Standard
-from services.metadata import CoverageControl, CoverageSection, Metadata
+from services.metadata import (
+    CoverageControl,
+    CoverageSection,
+    DomainMetadata,
+    Metadata,
+)
 from services.report_service import ReportService
 from services.sharding import ShardPart, ShardsCollectionFactory
 
@@ -40,12 +46,12 @@ def _rule(cloud, severity, controls):
     )
 
 
-def _handler() -> QuestionnaireHandler:
+def _handler(license_service=None) -> QuestionnaireHandler:
     return QuestionnaireHandler(
         tenant_service=None,  # type: ignore[arg-type]
         job_service=None,  # type: ignore[arg-type]
         report_service=ReportService(None, None),  # type: ignore[arg-type]
-        license_service=None,  # type: ignore[arg-type]
+        license_service=license_service,  # type: ignore[arg-type]
         platform_service=None,  # type: ignore[arg-type]
     )
 
@@ -121,6 +127,94 @@ def test_resolve_standard_by_full_name():
         is _STANDARD
     )
     assert QuestionnaireHandler.resolve_standard(full_cov, 'nope') is None
+
+
+def test_standards_by_domain_lists_full_names_in_sorted_order():
+    metadata = Metadata(
+        domains={
+            'KUBERNETES': DomainMetadata(
+                full_cov={
+                    'CIS Kubernetes Benchmark': {
+                        'v1.7.0': {
+                            '1.1': CoverageControl(total_rules=1),
+                        },
+                    },
+                },
+            ),
+            'AWS': DomainMetadata(
+                full_cov={
+                    'CIS AWS Foundations Benchmark': {
+                        'v1.2.0': {
+                            '1.1': CoverageControl(total_rules=1),
+                        },
+                    },
+                },
+            ),
+            'AZURE': DomainMetadata(),
+        },
+    )
+
+    assert QuestionnaireHandler.standards_by_domain(metadata) == {
+        'AWS': ['CIS AWS Foundations Benchmark v1.2.0'],
+        'KUBERNETES': ['CIS Kubernetes Benchmark v1.7.0'],
+    }
+
+
+def test_get_standards_returns_customer_standards_by_domain():
+    metadata = Metadata(
+        domains={
+            'KUBERNETES': DomainMetadata(
+                full_cov={
+                    'CIS Kubernetes Benchmark': {
+                        'v1.7.0': {'1.1': CoverageControl(total_rules=1)},
+                    },
+                },
+            ),
+        },
+    )
+
+    class _FakeLicenseService:
+        def get_customer_metadata(self, customer):
+            assert customer == 'TEST_CUSTOMER'
+            return metadata
+
+    response = _handler(_FakeLicenseService()).get_standards(
+        event={'customer_id': 'TEST_CUSTOMER'}
+    )
+
+    assert response['statusCode'] == 200
+    assert json.loads(response['body'])['data'] == {
+        'KUBERNETES': ['CIS Kubernetes Benchmark v1.7.0'],
+    }
+
+
+def test_standard_error_message_points_to_catalog_for_incompatible_standard():
+    metadata = Metadata(
+        domains={
+            'KUBERNETES': DomainMetadata(
+                full_cov={
+                    'CIS Kubernetes Benchmark': {
+                        'v1.7.0': {'1.1': CoverageControl(total_rules=1)},
+                    },
+                },
+            ),
+        },
+    )
+
+    message = QuestionnaireHandler.standard_error_message(
+        metadata, 'CIS Kubernetes Benchmark v1.7.0'
+    )
+
+    assert 'not available for this questionnaire report' in message
+    assert 'sre report questionnaire standards' in message
+
+
+def test_standard_error_message_keeps_unknown_standard_distinguishable():
+    message = QuestionnaireHandler.standard_error_message(
+        Metadata.empty(), 'unknown standard'
+    )
+
+    assert message == 'Standard unknown standard not found in metadata'
 
 
 def test_build_rows_aggregates_regions_with_failure_precedence():

@@ -1689,6 +1689,10 @@ class TenantQuestionnaireReportGetModel(BaseModel):
     )
 
 
+class QuestionnaireStandardsGetModel(BaseModel):
+    pass
+
+
 class JobErrorReportGetModel(BaseModel):
     href: bool = False
     format: ReportFormat = ReportFormat.JSON

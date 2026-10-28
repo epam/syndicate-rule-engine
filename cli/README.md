@@ -49,6 +49,11 @@ The password is requested interactively if `--password` is omitted. Other basic 
 
 Run `sre --help` or `sre <group> --help` to see the commands and options available in your version.
 
+Use `sre report questionnaire standards` to list the questionnaire standards
+and versions available to the configured customer, grouped by cloud or
+platform domain. If a requested standard is not compatible with a job or
+tenant, the report error points to this command.
+
 ## Commands reference
 
 The full description of all the commands, their parameters and examples is in

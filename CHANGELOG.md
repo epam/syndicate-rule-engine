@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.23.0] - Unreleased
+
+### Added
+- Added `GET /reports/questionnaire/standards` to list questionnaire standards
+  and versions grouped by cloud/platform domain
+
+### Fixed
+- Improved the questionnaire report error for standards unavailable to the
+  selected job or tenant; the message now points to the standards listing command
+
 ## [5.22.0] - 2026-XX-XX
 
 ### Added

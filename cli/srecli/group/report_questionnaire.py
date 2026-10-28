@@ -69,3 +69,14 @@ def accumulated(
         customer_id=customer_id,
     )
 
+
+@questionnaire.command(cls=ViewCommand, name='standards')
+@cli_response()
+def standards(
+    ctx: ContextObj,
+    customer_id: str | None,
+) -> SREResponse:
+    """Lists standards available for questionnaire reports by domain."""
+    return ctx['api_client'].report_questionnaire_standards(
+        customer_id=customer_id,
+    )
