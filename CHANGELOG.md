@@ -57,6 +57,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use dashes instead of underscores in main.py arguments
 - Improve `next_token` field validation to prevent 500 response status code
 
+## [5.21.3] - 2026-10-15
+
+### Changed
+- Restored `metricsExpirationDays` helm value to 90 days to avoid expired metrics collection
+- Optimized `SREJobs` collection queries during metrics update task
+- Divided expired metrics deletion into batches
+- Raised `mongo` and `minio` helm chart memory and disk limits to avoid OOM and disk pressure issues
+
+## [5.21.2] - 2026-10-09
+
+### Fixed
+- Reduced the MongoDB disk I/O produced by the scheduled `collect_metrics` task, which could saturate disk I/O on the node
+- Fixed periodic job query to exclude tenants with unfinished jobs
+- Skip periodic job for tenants without `CUSTODIAN_ACCESS` parent
+
+
+## [5.21.1] - 2026-10-08
+
+### Fixed
+- Replaced unsupported quay.io MinIO image with public.ecr.aws mirror before migration on other service
+
 ## [5.21.0] - 2026-09-08
 
 ### Added
