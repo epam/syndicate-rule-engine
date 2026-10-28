@@ -7,7 +7,7 @@ By default, the solution covers hundreds of security, compliance, utilization an
 
 All the technical details described below are actual for the particular version, or a range of versions of the software.
 
-### Actual for versions: 5.22.0
+### Actual for versions: 5.23.0
 
 ## Deployment options
 
