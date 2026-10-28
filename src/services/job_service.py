@@ -2,6 +2,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from typing import Any, Callable, Mapping
 
+from pymongo import DESCENDING
 from pynamodb.expressions.condition import Condition
 from pynamodb.pagination import ResultIterator
 
@@ -14,6 +15,18 @@ from services.ruleset_service import RulesetName
 
 
 class JobService(BaseDataService[Job]):
+    # Minimal set of attributes that metrics collecting needs
+    METRICS_ATTRIBUTES = (
+        Job.id,
+        Job.customer_name,
+        Job.tenant_name,
+        Job.submitted_at,
+        Job.stopped_at,
+        Job.status,
+        Job.job_type,
+        Job.platform_id,
+    )
+
     def create(
         self,
         customer_name: str,
@@ -131,6 +144,7 @@ class JobService(BaseDataService[Job]):
         ascending: bool = False,
         limit: int | None = None,
         last_evaluated_key: dict | None = None,
+        attributes_to_get: tuple | None = None,
     ) -> ResultIterator[Job]:
 
         if start and end:
@@ -161,6 +175,7 @@ class JobService(BaseDataService[Job]):
             scan_index_forward=ascending,
             limit=limit,
             last_evaluated_key=last_evaluated_key,
+            attributes_to_get=attributes_to_get,
         )
 
     def get_by_job_types(
@@ -250,7 +265,42 @@ class JobService(BaseDataService[Job]):
             raw['scan_progress'] = dict(sp)
         return raw
 
+    def _mongo_last_job_date(
+        self, hash_key_name: str, hash_key: str, platform: bool
+    ) -> str | None:
+        """
+        NOTE: this bypasses PynamoDB on purpose.
+
+        `PynamoDBToPymongoAdapter.query` always executes an additional
+        `count_documents(query)` to fill `ResultIterator.total`, even when
+        `limit=1` is requested. For this specific query the count is not
+        covered by the `t-sa-index` (it also filters by status and
+        platform_id), so Mongo has to FETCH every job the tenant has ever had
+        just to throw the number away. With metrics being collected for every
+        tenant, that turns into a lot of pointless random disk reads.
+        """
+        col = Job.mongo_adapter().get_collection(Job)
+        sa = Job.submitted_at.attr_name
+        doc = col.find_one(
+            {
+                hash_key_name: hash_key,
+                Job.status.attr_name: JobState.SUCCEEDED.value,
+                Job.platform_id.attr_name: {'$exists': platform},
+            },
+            projection={sa: 1, '_id': 0},
+            sort=[(sa, DESCENDING)],
+        )
+        if not doc:
+            return
+        return doc.get(sa)
+
     def get_tenant_last_job_date(self, tenant_name: str) -> str | None:
+        if Job.is_mongo_model():
+            return self._mongo_last_job_date(
+                hash_key_name=Job.tenant_name.attr_name,
+                hash_key=tenant_name,
+                platform=False,
+            )
         job = next(Job.tenant_name_submitted_at_index.query(
             hash_key=tenant_name,
             filter_condition=(Job.status == JobState.SUCCEEDED.value) & Job.platform_id.does_not_exist(),
@@ -278,6 +328,12 @@ class JobService(BaseDataService[Job]):
         return next(jobs, None)
 
     def get_platform_last_job_date(self, platform: Platform) -> str | None:
+        if Job.is_mongo_model():
+            return self._mongo_last_job_date(
+                hash_key_name=Job.tenant_name.attr_name,
+                hash_key=platform.tenant_name,
+                platform=True,
+            )
         job = next(Job.tenant_name_submitted_at_index.query(
             hash_key=platform.tenant_name,
             filter_condition=(Job.status == JobState.SUCCEEDED.value) & Job.platform_id.exists(),
