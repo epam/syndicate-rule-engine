@@ -96,9 +96,13 @@ class DigestReportHandler(AbstractHandler):
             content=self._collection_response(job, collection, metadata, cloud)
         )
 
-    @staticmethod
     def _collection_response(
-        job: Job, collection: ShardsCollection, metadata: Metadata, cloud: Cloud
+        self,
+        job: Job,
+        collection: ShardsCollection,
+        metadata: Metadata,
+        cloud: Cloud,
+        href: bool = False,
     ) -> dict[str, Any]:
         """
         Builds response for the given collection
@@ -106,6 +110,8 @@ class DigestReportHandler(AbstractHandler):
         collection.fetch_all()
 
         report = ShardsCollectionDigestConvertor(cloud, metadata).convert(collection)
+        if href:
+            report = self._rs.one_time_url_json(report, f'{job.id}-digest.json')
         return ReportResponse(entity=job, content=report, fmt=ReportFormat.JSON).dict()
 
     @validate_kwargs
@@ -133,7 +139,11 @@ class DigestReportHandler(AbstractHandler):
         for job in cursor:
             col = self._rs.job_collection(tenant, job)
             col.meta = meta
-            items.append(self._collection_response(job, col, metadata, cloud))
+            items.append(
+                self._collection_response(
+                    job, col, metadata, cloud, href=event.href
+                )
+            )
         return (
             ResponseFactory()
             .items(it=items, next_token=NextToken(cursor.last_evaluated_key))

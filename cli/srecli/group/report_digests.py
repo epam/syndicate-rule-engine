@@ -13,6 +13,7 @@ from srecli.group import (
 )
 from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.group import tenant_option
+from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 
 @click.group(name='digests')
@@ -26,9 +27,12 @@ def digests():
 @tenant_option
 @from_date_report_option
 @to_date_report_option
+@click.option('--href', '-hf', is_flag=True,
+              help='Return presigned URL instead of inline payload')
 @build_limit_option(help='Number of jobs to show')
 @next_option
 @cli_response()
+@presigned_url_hints_pack
 def jobs(
     ctx: ContextObj,
     job_id: Optional[str],
@@ -36,6 +40,7 @@ def jobs(
     from_date: Optional[datetime],
     to_date: Optional[datetime],
     job_types: tuple[str, ...],
+    href: bool,
     customer_id: str | None,
     limit: int,
     next_token: str | None,
@@ -60,6 +65,7 @@ def jobs(
         job_types=job_types,
         start_iso=from_date,
         end_iso=to_date,
+        href=href,
         customer_id=customer_id,
         limit=limit,
         next_token=next_token,

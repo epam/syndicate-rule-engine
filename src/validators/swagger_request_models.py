@@ -1662,6 +1662,7 @@ class TenantJobsDigestsReportGetModel(
 ):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
+    href: bool = False
 
 
 class JobComplianceReportGetModel(BaseModel):
@@ -2083,6 +2084,7 @@ class ResourceReportJobsGetModel(
     full: bool = False
     exact_match: bool = True
     search_by_all: bool = False
+    href: bool = False
 
     @field_validator('region', mode='before')
     def _(cls, v: str) -> str:

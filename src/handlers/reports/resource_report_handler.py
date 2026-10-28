@@ -717,7 +717,15 @@ class ResourceReportHandler(AbstractHandler):
             if not response:
                 _LOG.debug(f'No resources found for job {job.id}. Skipping')
                 continue
-            items.extend(self.dto(job, response))
+            if event.href:
+                url = self._report_service.one_time_url_json(
+                    response, f'{job.id}-resources.json'
+                )
+                items.append(
+                    ReportResponse(job, url, fmt=ReportFormat.JSON).dict()
+                )
+            else:
+                items.extend(self.dto(job, response))
         return (
             ResponseFactory()
             .items(it=items, next_token=NextToken(cursor.last_evaluated_key))

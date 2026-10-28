@@ -747,6 +747,10 @@ class EntityResourcesReportModel(BaseModel):
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None
+
+
+class TenantJobsResourcesReportModel(BaseModel):
+    items: list[ResourcesReportItem] | list[BaseReportJob]
     next_token: str | None = None
 
 
