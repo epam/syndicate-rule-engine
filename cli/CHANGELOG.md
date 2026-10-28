@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added `sre report dashboard jobs` to generate an Excel dashboard report for a scan job
+- Added pagination to tenant-level job reports (digests, details, findings, and resources) using `limit` and `next_token`
+- Added `--href` support to digest and resource reports to return presigned JSON download URLs per job
 
 ### Changed
 - Added the confirmation flag to all destructive CLI commands:
