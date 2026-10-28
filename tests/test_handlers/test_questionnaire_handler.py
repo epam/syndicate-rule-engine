@@ -202,16 +202,17 @@ def test_standard_error_message_points_to_catalog_for_incompatible_standard():
     )
 
     message = QuestionnaireHandler.standard_error_message(
-        metadata, 'CIS Kubernetes Benchmark v1.7.0'
+        metadata, Cloud.AWS, 'CIS Kubernetes Benchmark v1.7.0'
     )
 
-    assert 'not available for this questionnaire report' in message
+    assert 'is listed for KUBERNETES' in message
+    assert 'report is for AWS' in message
     assert 'sre report questionnaire standards' in message
 
 
 def test_standard_error_message_keeps_unknown_standard_distinguishable():
     message = QuestionnaireHandler.standard_error_message(
-        Metadata.empty(), 'unknown standard'
+        Metadata.empty(), Cloud.AWS, 'unknown standard'
     )
 
     assert message == 'Standard unknown standard not found in metadata'

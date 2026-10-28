@@ -1216,6 +1216,7 @@ class QuestionnaireHandler(AbstractHandler):
             return build_response(
                 content=self.standard_error_message(
                     metadata=metadata,
+                    cloud=cloud,
                     standard_name=event.standard,
                 ),
                 code=HTTPStatus.NOT_FOUND,
@@ -1258,6 +1259,7 @@ class QuestionnaireHandler(AbstractHandler):
             return build_response(
                 content=self.standard_error_message(
                     metadata=metadata,
+                    cloud=cloud,
                     standard_name=event.standard,
                 ),
                 code=HTTPStatus.NOT_FOUND,
@@ -1327,18 +1329,21 @@ class QuestionnaireHandler(AbstractHandler):
 
     @staticmethod
     def standard_error_message(
-        metadata: Metadata, standard_name: str
+        metadata: Metadata, cloud: Cloud, standard_name: str
     ) -> str:
-        if any(
-            QuestionnaireHandler.resolve_standard(
+        domains = [
+            domain_name
+            for domain_name, domain in sorted(metadata.domains.items())
+            if QuestionnaireHandler.resolve_standard(
                 domain.full_cov, standard_name
             )
-            for domain in metadata.domains.values()
-        ):
+        ]
+        if domains:
             return (
-                f'Standard {standard_name} is not available for this '
-                'questionnaire report. Run `sre report questionnaire '
-                'standards` to list available standards.'
+                f'Standard {standard_name} is listed for '
+                f'{", ".join(domains)}, but this questionnaire report is '
+                f'for {cloud.value}. Run `sre report questionnaire standards` '
+                'to see standards grouped by domain.'
             )
         return f'Standard {standard_name} not found in metadata'
 
