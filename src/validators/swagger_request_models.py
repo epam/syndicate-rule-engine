@@ -100,6 +100,17 @@ class BasePaginationModel(BaseModel):
         return next_token
 
 
+class ReportPaginationModel(BasePaginationModel):
+    """
+    Pagination over jobs for multi-job reports. Each job's report can be
+    large, so the default page size is smaller than for plain listings
+    """
+
+    limit: int = Field(
+        10, ge=1, le=50, description='Max number of jobs to process'
+    )
+
+
 class TimeRangedMixin:
     """
     Base model which provides time-range constraint
@@ -1619,7 +1630,9 @@ class JobFindingsReportGetModel(BaseModel):
     obfuscated: bool = False
 
 
-class TenantJobsFindingsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class TenantJobsFindingsReportGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
     href: bool = False
@@ -1631,7 +1644,9 @@ class JobDetailsReportGetModel(BaseModel):
     obfuscated: bool = False
 
 
-class TenantJobsDetailsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class TenantJobsDetailsReportGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
     href: bool = False
@@ -1642,9 +1657,12 @@ class JobDigestReportGetModel(BaseModel):
     pass
 
 
-class TenantJobsDigestsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class TenantJobsDigestsReportGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
+    href: bool = False
 
 
 class JobComplianceReportGetModel(BaseModel):
@@ -2051,7 +2069,9 @@ class PlatformK8sResourcesReportGetModel(BaseModel):
     # They are not declared
 
 
-class ResourceReportJobsGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class ResourceReportJobsGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     model_config = ConfigDict(extra='allow')
 
     start_iso: datetime | date = Field(None, alias='from')
@@ -2064,6 +2084,7 @@ class ResourceReportJobsGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     full: bool = False
     exact_match: bool = True
     search_by_all: bool = False
+    href: bool = False
 
     @field_validator('region', mode='before')
     def _(cls, v: str) -> str:
