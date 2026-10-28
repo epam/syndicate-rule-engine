@@ -179,6 +179,7 @@ from validators.swagger_response_models import (
     SingleTenantExcludedRules,
     SingleTenantsModel,
     SingleUserModel,
+    TenantJobsResourcesReportModel,
     TopViolationsReportComparisonModel,
     TopViolationsReportJobsModel,
 )
@@ -1303,7 +1304,7 @@ data: tuple[EndpointInfo, ...] = (
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ResourceReportJobsGetModel,
-        responses=[(HTTPStatus.OK, JobResourcesReportModel, None)],
+        responses=[(HTTPStatus.OK, TenantJobsResourcesReportModel, None)],
         permission=Permission.REPORT_RESOURCES_GET_JOBS_BATCH,
         description='Allows to get latest resources report by latest tenant jobs',
     ),
