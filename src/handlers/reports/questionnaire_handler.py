@@ -33,10 +33,9 @@ Data sources
   Scan results           : which of those rules succeeded / failed / were not
     evaluated.
 
-Currently metadata does not provide the standard hierarchy (sections,
-sub-sections, control titles) therefore those columns are omitted. As soon as
-such data appears it is enough to populate the corresponding ``ControlRow``
-attributes - the sheet layout picks them up automatically.
+The metadata provides the standard hierarchy (sections, sub-sections, control
+titles) through ``CoverageControl``. These values are included in the
+corresponding ``ControlRow`` fields when present in ``full_controls``.
 
 Multi-region aggregation
 ------------------------
@@ -87,7 +86,6 @@ from typing_extensions import Self
 from handlers import AbstractHandler, Mapping
 from helpers import deep_get
 from helpers.constants import (
-    DEPRECATED_RULE_SUFFIX,
     Cloud,
     Endpoint,
     HTTPMethod,
@@ -97,11 +95,12 @@ from helpers.constants import (
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.reports import Standard
+from helpers.rules import is_deprecated_rule_description
 from services import SP, modular_helpers
 from services.coverage_service import calculate_controls_coverages
 from services.job_service import JobService
 from services.license_service import LicenseService
-from services.metadata import Metadata
+from services.metadata import CoverageControl, Metadata
 from services.platform_service import PlatformService
 from services.report_service import ReportResponse, ReportService
 from services.sharding import ShardsCollection
@@ -207,11 +206,6 @@ def short_job_id(job_id: str) -> str:
     return job_id.rsplit('-', maxsplit=1)[-1]
 
 
-def is_deprecated_rule(rule_name: str) -> bool:
-    # TODO: update when rule deprecation logic changes
-    return rule_name.endswith(DEPRECATED_RULE_SUFFIX)
-
-
 class ReportScope(str, Enum):
     """Which questionnaire flavour is being built."""
 
@@ -301,8 +295,7 @@ class ControlRow:
     """One control of the standard, enriched with compliance results."""
 
     control_id: str
-    #: Optional hierarchy data. Not provided by metadata yet, but the sheet
-    #: layout supports it as soon as it appears.
+    #: Optional hierarchy data.
     section_id: str = ''
     section_title: str = ''
     #: (id, title) pairs between the top-level section and the control.
@@ -758,9 +751,10 @@ class SheetLayout:
         if self.with_sections:
             headers += [H_SECTION, H_TITLE]
         headers += self.sub_headers
-        headers += [H_CONTROL, H_SEVERITY, H_STATUS]
+        headers.append(H_CONTROL)
         if self.with_control_title:
             headers.append(H_CONTROL_TITLE)
+        headers += [H_SEVERITY, H_STATUS]
         headers += [H_COVERAGE, H_RULE_IDS]
         return headers
 
@@ -806,13 +800,13 @@ class SheetLayout:
                 else (None, None)
             )
             values.extend(pair)
+        values.append(row.control_id)
+        if self.with_control_title:
+            values.append(row.control_title or None)
         values += [
-            row.control_id,
             row.severity or None,
             row.status.value,
         ]
-        if self.with_control_title:
-            values.append(row.control_title or None)
         values += [row.coverage, row.rule_short_ids or None]
         return values
 
@@ -1270,7 +1264,7 @@ class QuestionnaireHandler(AbstractHandler):
         metadata: Metadata,
         cloud: Cloud,
         standard: Standard,
-        full_controls: dict[str, int],
+        full_controls: dict[str, CoverageControl],
         scope: ReportScope,
     ) -> io.BytesIO:
         """Build a questionnaire workbook without constructing an HTTP response."""
@@ -1302,7 +1296,7 @@ class QuestionnaireHandler(AbstractHandler):
 
     @staticmethod
     def build_standard_control_to_rule_names(
-        metadata: Metadata, cloud: Cloud
+        metadata: Metadata, cloud: Cloud, rule_descriptions: dict[str, str | None]
     ) -> dict:
         """
         standard name -> version -> control -> {'rules': [...],
@@ -1325,7 +1319,9 @@ class QuestionnaireHandler(AbstractHandler):
         for rule_name, rule_metadata in metadata.rules.items():
             if rule_metadata.cloud != cloud:
                 continue
-            deprecated = is_deprecated_rule(rule_name)
+            deprecated = is_deprecated_rule_description(
+                rule_descriptions.get(rule_name)
+            )
             rule_sev = rule_metadata.severity
             for standard, versions in rule_metadata.standard.items():
                 std_map = result.setdefault(standard, {})
@@ -1352,17 +1348,15 @@ class QuestionnaireHandler(AbstractHandler):
         metadata: Metadata,
         cloud: Cloud,
         standard: Standard,
-        full_controls: dict[str, int],
-        hierarchy: MappingABC[str, dict] | None = None,
+        full_controls: dict[str, CoverageControl],
     ) -> list[ControlRow]:
-        """
-        :param hierarchy: optional control id -> {'section_id', 'section_title',
-            'sub_sections', 'control_title'} mapping. Once the metadata starts
-            providing the standard schema it can be injected here and the
-            corresponding columns will appear in the resulting workbook.
-        """
         control_to_rules = self.build_standard_control_to_rule_names(
-            metadata=metadata, cloud=cloud
+            metadata=metadata,
+            cloud=cloud,
+            rule_descriptions={
+                rule_name: rule_meta.get('description')
+                for rule_name, rule_meta in collection.meta.items()
+            },
         )
         successful_rules, failed_rules = set(), set()
         for part in collection.iter_parts():
@@ -1401,14 +1395,16 @@ class QuestionnaireHandler(AbstractHandler):
         for control in sorted(aggregated, key=natural_key):
             compliance = aggregated[control]
             compliance.resolve_overlaps()
-            extra = (hierarchy or {}).get(control) or {}
+            control_data = full_controls[control]
+            sections = control_data.sections
+            first_section = sections[0] if sections else None
             rows.append(
                 ControlRow(
                     control_id=control,
-                    section_id=extra.get('section_id', ''),
-                    section_title=extra.get('section_title', ''),
-                    sub_sections=list(extra.get('sub_sections') or ()),
-                    control_title=extra.get('control_title', ''),
+                    section_id=first_section.id if first_section else '',
+                    section_title=first_section.title if first_section else '',
+                    sub_sections=[(section.id, section.title) for section in sections[1:]],
+                    control_title=control_data.control_title,
                     coverage=compliance.coverage or 0.0,
                     severity=compliance.severity or '',
                     successful_rules=sorted(compliance.successful),

@@ -1,8 +1,8 @@
 {
   "policy": {
-    "name": "ecc-aws-123-s3_test_policy-deprecated",
+    "name": "ecc-aws-123-s3_test_policy",
     "resource": "s3",
-    "description": "Description for ecc-aws-123-s3_test_policy-deprecated",
+    "description": "[DEPRECATED] Description for ecc-aws-123-s3_test_policy",
     "comment": "010047042901"
   },
   "version": "0.9.40",

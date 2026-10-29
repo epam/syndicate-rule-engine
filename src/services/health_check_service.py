@@ -419,7 +419,7 @@ class AllS3BucketsExist(AbstractHealthCheck):
     def remediation(cls) -> str | None:
         return (
             'Set bucket names to .env and execute `main.py '
-            'create_buckets`. For saas deploy the buckets'
+            'create-buckets`. For saas deploy the buckets'
         )
 
     @classmethod
@@ -457,7 +457,7 @@ class VaultAuthTokenIsSetCheck(AbstractHealthCheck):
 
     @classmethod
     def remediation(cls) -> str | None:
-        return 'Execute `main.py init_vault`'
+        return 'Execute `main.py init-vault`'
 
     @classmethod
     def impact(cls) -> str | None:

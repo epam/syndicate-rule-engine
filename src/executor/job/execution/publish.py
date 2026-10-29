@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+import msgspec
+
 from executor.job.execution.context import JobExecutionContext
-from executor.services.report_service import JobResult, statistics_from_shards_collection
+from executor.job.scan.types import FailedPoliciesMap
+from executor.services.report_service import (
+    JobResult,
+    statistics_from_shards_collection,
+)
 from helpers.constants import Cloud
 from helpers.log_helper import get_logger
-from executor.job.scan.types import FailedPoliciesMap
 from services import SP
-from services.reports_bucket import ReportsBucketKeysBuilder, StatisticsBucketKeysBuilder
+from services.report_service import StatisticsItem
+from services.reports_bucket import (
+    ReportsBucketKeysBuilder,
+    StatisticsBucketKeysBuilder,
+)
 from services.sharding import (
     ShardPart,
     ShardsCollection,
@@ -96,7 +105,7 @@ def finalize_standard_job_reports(
     merged_collection: ShardsCollection | None = None,
 ) -> None:
     """
-    Writes full job result to S3, merges into latest, uploads statistics.
+    Writes job results and dashboard rows, merges latest, uploads statistics.
 
     When ``merged_collection`` is set (all regions finished; data was merged
     incrementally to S3 partial), the final report is built from that
@@ -174,3 +183,15 @@ def finalize_standard_job_reports(
         key=StatisticsBucketKeysBuilder.job_statistics(ctx.job),
         obj=stats,
     )
+
+    _LOG.info('Collecting dashboard raw data')
+    try:
+        SP.dashboard_report_service.collect_raw_data(
+            job=ctx.job,
+            tenant=ctx.tenant,
+            collection=collection,
+            statistics=msgspec.convert(stats, type=list[StatisticsItem]),
+            keys_builder=keys_builder,
+        )
+    except Exception:
+        _LOG.exception('Failed to collect dashboard raw data')

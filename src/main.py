@@ -5,10 +5,13 @@ import json
 import logging.config
 import secrets
 import string
+from argparse import Action, _MutuallyExclusiveGroup
+from enum import Flag
+
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Callable, Literal, Iterable
 
 from modular_sdk.models.pynamongo.indexes_creator import IndexesCreator
 
@@ -25,6 +28,7 @@ from helpers.log_helper import setup_logging
 from onprem.api.app import OnPremApiBuilder
 from services import SP
 from services.openapi_spec_generator import OpenApiGenerator
+from services.reports_bucket import ReportsBucketKeysBuilder
 
 
 SRC = Path(__file__).parent.resolve()
@@ -34,18 +38,38 @@ ENV_ACTION_DEST = 'env_action'
 ALL_NESTING: tuple[str, ...] = (ACTION_DEST, ENV_ACTION_DEST)  # important
 
 RUN_ACTION = 'run'
-CREATE_INDEXES_ACTION = 'create_indexes'
-CREATE_BUCKETS_ACTION = 'create_buckets'
-GENERATE_OPENAPI_ACTION = 'generate_openapi'
-INIT_VAULT_ACTION = 'init_vault'
-SET_META_REPOS_ACTION = 'set_meta_repos'
-SHOW_PERMISSIONS_ACTION = 'show_permissions'
+# for backward compatibility with old scripts
+OLD_CREATE_INDEXES_ACTION = 'create_indexes'
+OLD_CREATE_BUCKETS_ACTION = 'create_buckets'
+OLD_GENERATE_OPENAPI_ACTION = 'generate_openapi'
+OLD_INIT_VAULT_ACTION = 'init_vault'
+OLD_SET_META_REPOS_ACTION = 'set_meta_repos'
+OLD_SHOW_PERMISSIONS_ACTION = 'show_permissions'
+
+CREATE_INDEXES_ACTION = 'create-indexes'
+CREATE_BUCKETS_ACTION = 'create-buckets'
+GENERATE_OPENAPI_ACTION = 'generate-openapi'
+INIT_VAULT_ACTION = 'init-vault'
+SET_META_REPOS_ACTION = 'set-meta-repos'
+SHOW_PERMISSIONS_ACTION = 'show-permissions'
 INIT_ACTION = 'init'
 
 DEFAULT_HOST = '0.0.0.0'
 DEFAULT_PORT = 8000
 
 SYSTEM_USER = 'system_user'
+
+DEPLOYMENT_DIR = Path(__file__).parent.parent / 'deployment'
+DEPLOYMENT_ARTIFACTS_DIR = DEPLOYMENT_DIR / 'artifacts'
+
+DASHBOARD_TEMPLATE_PATH = (
+    DEPLOYMENT_ARTIFACTS_DIR /
+    ReportsBucketKeysBuilder.dashboard_template_file
+)
+CUSTODIAN_RESOURCE_NAMES_MAP_PATH = (
+    DEPLOYMENT_ARTIFACTS_DIR /
+    'CUSTODIAN_RESOURCE_NAMES_MAP.json'
+)
 
 
 def gen_password(digits: int = 20) -> str:
@@ -83,9 +107,22 @@ logging.config.dictConfig(
 _LOG = logging.getLogger(__name__)
 
 
+class HiddenSubparserFormatter(argparse.HelpFormatter):
+    def add_usage(self, usage, actions, groups, prefix=None):
+        for action in actions:
+            if isinstance(action, argparse._SubParsersAction):
+                action.choices = {
+                    cmd: parser for cmd, parser in action.choices.items()
+                    if getattr(parser, 'usage', argparse.SUPPRESS) \
+                       is not argparse.SUPPRESS
+                }
+        super().add_usage(usage, actions, groups, prefix)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description='Syndicate Rule Engine configuration cli entering point'
+        description='Syndicate Rule Engine configuration cli entering point',
+        formatter_class=HiddenSubparserFormatter,
     )
     # -- top level sub-parser
     sub_parsers = parser.add_subparsers(
@@ -147,6 +184,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help='IP Port to run the server on',
     )
+    # for backward compatibility
+    for arg_name in (
+            OLD_CREATE_INDEXES_ACTION,
+            OLD_CREATE_BUCKETS_ACTION,
+            OLD_GENERATE_OPENAPI_ACTION,
+            OLD_INIT_VAULT_ACTION,
+            OLD_SET_META_REPOS_ACTION,
+            OLD_SHOW_PERMISSIONS_ACTION,
+    ):
+        sub_parsers.add_parser(arg_name, usage=argparse.SUPPRESS)
     return parser
 
 
@@ -327,8 +374,45 @@ class Run(ActionHandler):
 
 
 class InitAction(ActionHandler):
+    @staticmethod
+    def upload_dashboard_artifacts():
+        if not DASHBOARD_TEMPLATE_PATH.is_file():
+            raise FileNotFoundError(
+                f'Dashboard template not found: {DASHBOARD_TEMPLATE_PATH}'
+            )
+
+        bucket = SP.environment_service.default_reports_bucket_name()
+        key = ReportsBucketKeysBuilder.dashboard_template_key()
+        SP.s3.put_object(
+            bucket=bucket,
+            key=key,
+            body=DASHBOARD_TEMPLATE_PATH.read_bytes(),
+            content_type=(
+                'application/vnd.openxmlformats-officedocument.'
+                'spreadsheetml.sheet'
+            ),
+        )
+        _LOG.info(f'Uploaded dashboard template to s3://{bucket}/{key}')
+
     def __call__(self):
         from models.setting import Setting
+
+        self.upload_dashboard_artifacts()
+
+        if not CUSTODIAN_RESOURCE_NAMES_MAP_PATH.is_file():
+            raise FileNotFoundError(
+                f'Custodian resource names map not found: '
+                f'{CUSTODIAN_RESOURCE_NAMES_MAP_PATH}'
+            )
+
+        _LOG.info('Setting Custodian resource names map')
+        resource_names_map = json.loads(
+            CUSTODIAN_RESOURCE_NAMES_MAP_PATH.read_text(encoding='utf-8')
+        )
+        Setting(
+            name=SettingKey.CUSTODIAN_RESOURCE_NAMES_MAP.value,
+            value=resource_names_map,
+        ).save()
 
         if not Setting.get_nullable(SettingKey.SYSTEM_CUSTOMER):
             _LOG.info('Setting system customer name')
@@ -408,6 +492,7 @@ def main(args: list[str] | None = None):
         (INIT_VAULT_ACTION,): InitVault(),
         (SET_META_REPOS_ACTION,): SetMetaRepos(),
         (CREATE_INDEXES_ACTION,): InitMongo(),
+        (OLD_CREATE_INDEXES_ACTION,): InitMongo(),
         (CREATE_BUCKETS_ACTION,): InitMinio(),
         (GENERATE_OPENAPI_ACTION,): GenerateOpenApi(),
         (RUN_ACTION,): Run(),

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from billiard.pool import ApplyResult, Pool
 import msgspec
 from c7n import utils
+from modular_sdk.commons.constants import ENV_KUBECONFIG
 from modular_sdk.models.tenant import Tenant
 from modular_sdk.modular import ModularServiceProvider
 
@@ -34,7 +35,9 @@ from helpers.constants import (
 )
 from helpers.log_helper import get_logger
 from services import SP, modular_helpers
+from services.k8s.credentials_service import K8sCredentialsService
 from services.license_service import LicenseService
+from services.platform_service import Platform, PlatformService
 from services.reports import ActivatedTenantsIterator
 from services.resources_service import ResourcesService
 from services.sharding import ShardPart
@@ -219,11 +222,13 @@ class CustodianResourceCollector(BaseResourceCollector):
         resources_service: ResourcesService,
         license_service: LicenseService,
         tenant_settings_service: TenantSettingsService,
+        platform_service: PlatformService | None = None,
     ):
         self._ms = modular_service
         self._rs = resources_service
         self._ls = license_service
         self._tss = tenant_settings_service
+        self._ps = platform_service
 
     @classmethod
     def build(cls) -> Self:
@@ -232,6 +237,7 @@ class CustodianResourceCollector(BaseResourceCollector):
             resources_service=SP.resources_service,
             license_service=SP.license_service,
             tenant_settings_service=SP.modular_client.tenant_settings_service(),
+            platform_service=SP.platform_service,
         )
 
     def _scan_all_regions(
@@ -326,13 +332,16 @@ class CustodianResourceCollector(BaseResourceCollector):
         tenant: Tenant,
         cloud: Cloud,
         work_dir: Path,
+        platform: Platform | None = None,
     ) -> int:
         """
         Read scan results from files and save to MongoDB.
         Runs in MAIN process - safe MongoDB operations.
         Returns count of saved resources.
         """
-        account_id = str(tenant.project)
+        platform_id = platform.id if platform else None
+        # for k8s platforms the platform id plays the role of an account id
+        account_id = platform_id or str(tenant.project)
         saved_total = 0
 
         scan_result = ScanResult(work_dir, cloud)
@@ -345,11 +354,17 @@ class CustodianResourceCollector(BaseResourceCollector):
         for region, resource_type, resources in scan_result.iter_resources():
             try:
                 # Remove old resources
-                self._rs.remove_policy_resources(
-                    account_id=account_id,
-                    location=region,
-                    resource_type=resource_type,
-                )
+                if platform_id:
+                    self._rs.remove_platform_resources(
+                        platform_id=platform_id,
+                        resource_type=resource_type,
+                    )
+                else:
+                    self._rs.remove_policy_resources(
+                        account_id=account_id,
+                        location=region,
+                        resource_type=resource_type,
+                    )
 
                 # Create ShardPart for the iterator
                 timestamp = time.time()
@@ -370,6 +385,7 @@ class CustodianResourceCollector(BaseResourceCollector):
                     tenant_name=tenant.name,
                     resources_service=self._rs,
                     collector_type=ResourcesCollectorType.CUSTODIAN,
+                    platform_id=platform_id,
                 )
 
                 for chunk in utils.chunks(it, BATCH_SAVE_CHUNK_SIZE):
@@ -417,12 +433,129 @@ class CustodianResourceCollector(BaseResourceCollector):
 
         return saved, failed_regions
 
+    def _platform_credentials(self, platform: Platform) -> dict | None:
+        """
+        Resolves a fresh kubeconfig for the given platform and dumps it into a
+        temporary file. Must be called right before each platform scan because
+        EKS tokens are short-living.
+        Returns envs that must be exported to the scanning subprocesses.
+        """
+        from executor.job.credentials.resolver import _get_tenant_credentials
+
+        config = K8sCredentialsService.build().get_kubeconfig(
+            platform=platform,
+            tenant_creds_resolver=_get_tenant_credentials,
+        )
+        if not config:
+            _LOG.warning(f"Could not resolve kubeconfig for {platform}")
+            return None
+        return {ENV_KUBECONFIG: str(config.to_temp_file())}
+
+    def _collect_platform(
+        self,
+        tenant: Tenant,
+        platform: Platform,
+        resource_types: tuple[str, ...] | None,
+    ) -> int:
+        """
+        Collects the inventory of one k8s platform. Kubernetes has no regions
+        so all its resources are stored with location == GLOBAL_REGION and
+        account_id == platform.id
+        """
+        credentials = self._platform_credentials(platform)
+        if credentials is None:
+            raise ValueError(f"No credentials for platform {platform.id}")
+
+        kubeconfig = credentials.get(ENV_KUBECONFIG)
+
+        try:
+            with tempfile.TemporaryDirectory() as work_dir:
+                work_path = Path(work_dir)
+
+                _LOG.info(f"Phase 1: Scanning k8s platform {platform.id}")
+                failed = self._scan_all_regions(
+                    cloud=Cloud.KUBERNETES,
+                    regions={GLOBAL_REGION},
+                    resource_types=resource_types,
+                    credentials=credentials,
+                    work_dir=work_path,
+                )
+                if failed:
+                    _LOG.warning(
+                        f"Scanning of platform {platform.id} did not fully "
+                        f"succeed"
+                    )
+
+                _LOG.info("Phase 2: Saving k8s resources to database")
+                saved = self._save_resources_to_db(
+                    tenant=tenant,
+                    cloud=Cloud.KUBERNETES,
+                    work_dir=work_path,
+                    platform=platform,
+                )
+        finally:
+            if kubeconfig:
+                Path(kubeconfig).unlink(missing_ok=True)
+
+        return saved
+
+    @staticmethod
+    def _k8s_resource_types(
+        resource_types: set[str] | None,
+    ) -> tuple[bool, tuple[str, ...] | None]:
+        """
+        Keeps only KUBERNETES resource types out of the requested ones.
+        Returns (whether platforms must be scanned at all, the types to scan)
+        """
+        if not resource_types:
+            return True, None
+        k8s = tuple(
+            rt
+            for rt in resource_types
+            if '.' not in rt or rt.startswith('k8s.')
+        )
+        return bool(k8s), k8s or None
+
+    def _collect_tenant_platforms(
+        self,
+        tenant: Tenant,
+        resource_types: set[str] | None,
+    ) -> tuple[int, list[str]]:
+        """
+        Collects resources of all the k8s platforms that belong to the tenant.
+        Returns (number of saved resources, failed platform ids)
+        """
+        should_scan, types = self._k8s_resource_types(resource_types)
+        if not should_scan:
+            _LOG.debug(
+                'None of the requested resource types is a KUBERNETES one. '
+                'Skipping platforms'
+            )
+            return 0, []
+
+        ps = self._ps or SP.platform_service
+        total = 0
+        failed: list[str] = []
+        for platform in ps.query_by_tenant(tenant):
+            try:
+                saved = self._collect_platform(
+                    tenant=tenant,
+                    platform=platform,
+                    resource_types=types,
+                )
+                total += saved
+                _LOG.info(f"Completed platform {platform.id}: {saved} resources")
+            except Exception as e:
+                _LOG.error(f"Error processing platform {platform.id}: {e}")
+                failed.append(platform.id)
+        return total, failed
+
     def collect_all_resources(
         self,
         regions: set[str] | None = None,
         resource_types: set[str] | None = None,
     ) -> None:
-        """Collect resources for all activated tenants."""
+        """Collect resources for all activated tenants and their k8s platforms."""
         from executor.job import get_tenant_credentials
 
         _LOG.info("Starting resource collection for all tenants")
@@ -430,6 +563,7 @@ class CustodianResourceCollector(BaseResourceCollector):
         it = ActivatedTenantsIterator(mc=self._ms, ls=self._ls)
         processed_tenants = 0
         failed_tenants: list[str] = []
+        failed_platforms: list[str] = []
         total_resources = 0
 
         for _, tenant, _ in it:
@@ -465,7 +599,17 @@ class CustodianResourceCollector(BaseResourceCollector):
                 _LOG.error(f"Error processing tenant {tenant.name}: {e}")
                 failed_tenants.append(tenant.name)
 
+            # k8s platforms are collected independently of the tenant's cloud
+            # because they have their own credentials
+            saved, failed = self._collect_tenant_platforms(
+                tenant=tenant,
+                resource_types=resource_types,
+            )
+            total_resources += saved
+            failed_platforms.extend(failed)
+
         _LOG.info(
             f"Collection complete: {processed_tenants} tenants, "
-            f"{total_resources} resources, {len(failed_tenants)} failed"
+            f"{total_resources} resources, {len(failed_tenants)} failed tenants, "
+            f"{len(failed_platforms)} failed platforms"
         )

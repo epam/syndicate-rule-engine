@@ -143,7 +143,7 @@ def health_check(ctx: ContextObj, identifier, status, **kwargs):
 
 
 @sre.command(cls=ViewCommand, name='show_config')
-@cli_response()
+@cli_response(check_access_token=False)
 def show_config(ctx: ContextObj, **kwargs):
     """
     Returns the cli configuration

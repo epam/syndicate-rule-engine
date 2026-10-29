@@ -14,8 +14,10 @@ from helpers.regions import (
     get_region_by_cloud_with_global,
 )
 from services import SP
+from services.platform_service import Platform, PlatformService
 from services.resources_service import ResourcesService
 from validators.swagger_request_models import (
+    PlatformK8sResourcesGetModel,
     ResourcesArnGetModel,
     ResourcesGetModel,
 )
@@ -29,15 +31,18 @@ class ResourceHandler(AbstractHandler):
         self,
         modular_service: ModularServiceProvider,
         resources_service: ResourcesService,
+        platform_service: PlatformService,
     ):
         self._ms = modular_service
         self._rs = resources_service
+        self._ps = platform_service
 
     @classmethod
     def build(cls):
         return cls(
             modular_service=SP.modular_client,
             resources_service=SP.resources_service,
+            platform_service=SP.platform_service,
         )
 
     @property
@@ -45,6 +50,9 @@ class ResourceHandler(AbstractHandler):
         return {
             Endpoint.RESOURCES: {HTTPMethod.GET: self.get_resources},
             Endpoint.RESOURCES_ARN: {HTTPMethod.GET: self.get_resource_by_arn},
+            Endpoint.PLATFORMS_K8S_ID_RESOURCES: {
+                HTTPMethod.GET: self.get_platform_resources
+            },
         }
 
     def _validate_tenant(
@@ -143,6 +151,52 @@ class ResourceHandler(AbstractHandler):
                 .exc()
             )
 
+    def _get_platform(self, platform_id: str, customer: str | None) -> Platform:
+        """
+        Resolves the platform and makes sure the caller is allowed to see it
+        """
+        platform = self._ps.get_nullable(hash_key=platform_id)
+        if not platform or (customer and platform.customer != customer):
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(f'Platform {platform_id} not found')
+                .exc()
+            )
+        return platform
+
+    def _validate_k8s_resource_type(
+        self, resource_type: str | None
+    ) -> str | None:
+        """
+        Normalizes a k8s resource type adding the "k8s." prefix if needed
+        """
+        if not resource_type:
+            return None
+        try:
+            prefix = self._rs.cloud_to_prefix(Cloud.K8S)
+            if '.' not in resource_type:
+                resource_type = f'{prefix}.{resource_type}'
+            elif not resource_type.startswith(f'{prefix}.'):
+                raise ValueError(
+                    f'Resource type {resource_type} is not a KUBERNETES '
+                    f'resource type'
+                )
+
+            if resource_type not in self._rs.get_resource_types_by_cloud(
+                Cloud.K8S
+            ):
+                raise ValueError(
+                    f'Resource type {resource_type} is not supported for '
+                    f'cloud {Cloud.KUBERNETES.value}'
+                )
+        except ValueError as e:
+            raise (
+                ResponseFactory(HTTPStatus.UNPROCESSABLE_ENTITY)
+                .message(str(e))
+                .exc()
+            )
+        return resource_type
+
     def _build_resource_dto(self, resource):
         dto = {
             'id': resource.id,
@@ -156,7 +210,11 @@ class ResourceHandler(AbstractHandler):
         }
         if resource.arn:
             dto['arn'] = resource.arn
-        
+        if resource.platform_id:
+            dto['platform_id'] = resource.platform_id
+        if resource.namespace:
+            dto['namespace'] = resource.namespace
+
         return dto
 
     @validate_kwargs
@@ -175,6 +233,55 @@ class ResourceHandler(AbstractHandler):
             resource_type=event.resource_type,
             tenant_name=event.tenant_name,
             customer_name=event.customer_id,
+            limit=event.limit,
+            last_evaluated_key=NextToken.deserialize(event.next_token).value,
+        )
+
+        resource_dtos = [
+            self._build_resource_dto(resource)
+            for resource in resources_iterator
+        ]
+
+        return (
+            ResponseFactory()
+            .items(
+                it=resource_dtos,
+                next_token=NextToken(resources_iterator.last_evaluated_key),
+            )
+            .build()
+        )
+
+    @validate_kwargs
+    def get_platform_resources(
+        self,
+        event: PlatformK8sResourcesGetModel,
+        platform_id: str,
+        platform_obj: Platform | None = None,
+    ):
+        """
+        Get the collected inventory of a specific K8S platform.
+        """
+        _LOG.debug(f'Getting resources of platform {platform_id}')
+
+        # platform_obj is resolved by the tenant-access restriction processor
+        platform = platform_obj or self._get_platform(
+            platform_id, event.customer_id
+        )
+        if event.customer_id and platform.customer != event.customer_id:
+            raise (
+                ResponseFactory(HTTPStatus.NOT_FOUND)
+                .message(f'Platform {platform_id} not found')
+                .exc()
+            )
+        resource_type = self._validate_k8s_resource_type(event.resource_type)
+
+        resources_iterator = self._rs.get_resources(
+            id=event.id,
+            name=event.name,
+            resource_type=resource_type,
+            platform_id=platform.id,
+            namespace=event.namespace,
+            customer_name=platform.customer,
             limit=event.limit,
             last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
