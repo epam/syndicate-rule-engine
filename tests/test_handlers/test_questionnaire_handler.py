@@ -159,10 +159,23 @@ def test_standards_by_domain_lists_full_names_in_sorted_order():
         'KUBERNETES': ['CIS Kubernetes Benchmark v1.7.0'],
     }
 
+    assert QuestionnaireHandler.standards_by_domain(
+        metadata, domains={'KUBERNETES'}
+    ) == {
+        'KUBERNETES': ['CIS Kubernetes Benchmark v1.7.0'],
+    }
+
 
 def test_get_standards_returns_customer_standards_by_domain():
     metadata = Metadata(
         domains={
+            'AWS': DomainMetadata(
+                full_cov={
+                    'CIS AWS Foundations Benchmark': {
+                        'v1.2.0': {'1.1': CoverageControl(total_rules=1)},
+                    },
+                },
+            ),
             'KUBERNETES': DomainMetadata(
                 full_cov={
                     'CIS Kubernetes Benchmark': {
@@ -179,11 +192,15 @@ def test_get_standards_returns_customer_standards_by_domain():
             return metadata
 
     response = _handler(_FakeLicenseService()).get_standards(
-        event={'customer_id': 'TEST_CUSTOMER'}
+        event={
+            'customer_id': 'TEST_CUSTOMER',
+            'domains': 'AWS,KUBERNETES',
+        }
     )
 
     assert response['statusCode'] == 200
     assert json.loads(response['body'])['data'] == {
+        'AWS': ['CIS AWS Foundations Benchmark v1.2.0'],
         'KUBERNETES': ['CIS Kubernetes Benchmark v1.7.0'],
     }
 

@@ -1172,7 +1172,7 @@ class QuestionnaireHandler(AbstractHandler):
         metadata = self._license_service.get_customer_metadata(
             event.customer_id
         )
-        domain_standards = self.standards_by_domain(metadata)
+        domain_standards = self.standards_by_domain(metadata, event.domains)
         return build_response(
             content=domain_standards
         )
@@ -1317,14 +1317,16 @@ class QuestionnaireHandler(AbstractHandler):
         return None
 
     @staticmethod
-    def standards_by_domain(metadata: Metadata) -> dict[str, list[str]]:
+    def standards_by_domain(
+        metadata: Metadata, domains: set[str] | None = None
+    ) -> dict[str, list[str]]:
         return {
             domain: sorted(
                 (standard.full_name for standard in domain_metadata.full_cov),
                 key=str.lower,
             )
             for domain, domain_metadata in sorted(metadata.domains.items())
-            if domain_metadata.full_cov
+            if domain_metadata.full_cov and (not domains or domain in domains)
         }
 
     @staticmethod
