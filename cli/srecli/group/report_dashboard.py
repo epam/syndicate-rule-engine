@@ -27,7 +27,9 @@ def jobs(
     tenant_name: str | None,
     customer_id: str | None,
 ) -> SREResponse:
-    """Generate an Excel dashboard from a scan job or tenant."""
+    """
+    Generate an Excel dashboard from a scan job or tenant
+    """
     fields = (job_id, tenant_name)
     if not any(fields) or all(fields):
         raise click.ClickException(
