@@ -86,7 +86,9 @@ def standards(
     domains: tuple[str],
     customer_id: str | None,
 ) -> SREResponse:
-    """Lists standards available for questionnaire reports by domain."""
+    """
+    Lists standards available for questionnaire reports by domain
+    """
     return ctx['api_client'].report_questionnaire_standards(
         domains=','.join(domains) if domains else None,
         customer_id=customer_id,
