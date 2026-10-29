@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `sre report questionnaire standards` to list questionnaire standards
   and versions grouped by cloud/platform domain
 
-## [5.22.0] - 2026-XX-XX
+## [5.22.0] - 2026-11-02
 
 ### Added
 - Added `sre report dashboard jobs` to generate an Excel dashboard report for a scan job
