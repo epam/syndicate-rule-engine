@@ -103,11 +103,14 @@ def update(
 
 
 @auth.command(cls=ViewCommand, name='delete')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, customer_id):
+def delete(ctx: ContextObj, confirm: bool, customer_id):
     """
     Removes current MCP JWT auth configuration
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].mcp_auth_setting_delete(customer_id=customer_id)
 
 

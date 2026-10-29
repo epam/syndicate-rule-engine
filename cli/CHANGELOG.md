@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.22.0] - 2026-XX-XX
+
+### Added
+- Added `sre report dashboard jobs` to generate an Excel dashboard report for a scan job
+- Added pagination to tenant-level job reports (digests, details, findings, and resources) using `limit` and `next_token`
+- Added `--href` support to digest and resource reports to return presigned JSON download URLs per job
+
+### Changed
+- Added the confirmation flag to all destructive CLI commands:
+  - `sre rule delete`
+  - `sre integrations mcp auth delete`
+  - `sre integrations re delete`
+  - `sre integrations event sources delete`
+  - `sre integrations dojo delete`
+  - `sre integrations chronicle delete`
+  - `sre customer rabbitmq delete`
+  - `sre job scheduled delete`
+  - `sre license delete`
+  - `sre policy delete`
+  - `sre platform k8s delete`
+  - `sre role delete`
+  - `sre ruleset delete`
+  - `sre users delete`
+  - `sre rulesource delete`
+  - `sre resource exception delete`
+  - `sre setting lm client delete`
+  - `sre setting lm config delete`
+  - `sre setting mail delete`
+  - `sre setting report disable_sending`
+  - `sre cleanup`
+- Improved the help message for the `--job_type/-jt` option
+- Added a dedicated `sre resource describe_platform` command that returns the
+  collected inventory of a single K8S platform (`--platform_id`/`-pid` is
+  required)
+- Split job submission command by cloud provider
+- Removed token validation from the command `show_config`
+
 ## [5.21.0] - 2026-09-08
 
 ### Added

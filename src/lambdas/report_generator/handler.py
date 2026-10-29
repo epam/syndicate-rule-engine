@@ -2,6 +2,7 @@ from functools import cached_property
 
 from handlers.reports import (
     ComplianceReportHandler,
+    DashboardReportHandler,
     DetailedReportHandler,
     DigestReportHandler,
     ErrorsReportHandler,
@@ -39,6 +40,7 @@ class ReportGenerator(ApiEventProcessorLambdaHandler):
     )
     handlers = (
         ComplianceReportHandler,
+        DashboardReportHandler,
         QuestionnaireHandler,
         ResourceReportHandler,
         JobsRulesHandler,

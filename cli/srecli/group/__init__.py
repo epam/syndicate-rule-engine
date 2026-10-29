@@ -873,7 +873,8 @@ def build_job_type_option(*args, **kwargs) -> Callable:
     params = dict(
         type=click.Choice(tuple(map(operator.attrgetter('value'), JobType))),
         help='Specify type of jobs to retrieve '
-             '(manual type is deprecated and it will be removed).',
+             '(manual type is deprecated and it will be removed). '
+             'The option is applicable only with `--tenant_name`',
         callback=renew_job_type,
         multiple=True,
         required=False,
@@ -964,6 +965,10 @@ exception_expire_at_required_option = build_iso_date_option(
 )
 
 limit_option = build_limit_option()
+report_limit_option = build_limit_option(
+    type=click.IntRange(min=1, max=20),
+    help='Number of jobs to show',
+)
 next_option = click.option('--next_token', '-nt', type=str, required=False,
                            help='Token to start record-pagination from')
 

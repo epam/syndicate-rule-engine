@@ -70,11 +70,14 @@ def describe(ctx: ContextObj, name, tenant_name, customer_id):
 @scheduled.command(cls=ViewCommand, name='delete')
 @click.option('--name', '-n', type=str, required=True,
               help='Scheduled job name to remove')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, name, customer_id):
+def delete(ctx: ContextObj, name, confirm: bool, customer_id):
     """
     Removes a scheduled job
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].scheduled_job_delete(name=name,
                                                   customer_id=customer_id)
 

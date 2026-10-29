@@ -227,11 +227,14 @@ def update(
     is_flag=True,
     help="Whether to remove all rules belonging to this rule source",
 )
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, rule_source_id, delete_rules, customer_id):
+def delete(ctx: ContextObj, rule_source_id, delete_rules, confirm: bool, customer_id):
     """
     Deletes rule source
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx["api_client"].rule_source_delete(
         id=rule_source_id,
         delete_rules=delete_rules,

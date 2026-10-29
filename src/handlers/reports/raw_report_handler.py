@@ -59,7 +59,7 @@ class RawReportHandler(AbstractHandler):
             obfuscation.obfuscate_collection(collection, dictionary_out)
             flip_dict(dictionary_out)
             resp['dictionary_url'] = self._rs.one_time_url_json(
-                dictionary_out, 'obfuscation_dictionary.json'
+                dictionary_out, 'dictionary.json'
             )
         # msgspec can dump parts directly
         resp['url'] = self._rs.one_time_url_json(

@@ -71,6 +71,10 @@ class Endpoint(str, Enum):
     METRICS_UPDATE = '/metrics/update'
     METADATA_UPDATE = '/metadata/update'
     REPORTS_STATUS = '/reports/status'
+    REPORTS_DASHBOARD_JOBS_JOB_ID = '/reports/dashboard/jobs/{job_id}'
+    REPORTS_DASHBOARD_TENANTS_TENANT_NAME = (
+        '/reports/dashboard/tenants/{tenant_name}'
+    )
     REPORTS_PROJECT = '/reports/project'
     USERS_USERNAME = '/users/{username}'
     CREDENTIALS_ID = '/credentials/{id}'
@@ -97,6 +101,7 @@ class Endpoint(str, Enum):
     INTEGRATIONS_CHRONICLE = '/integrations/chronicle'
     CREDENTIALS_ID_BINDING = '/credentials/{id}/binding'
     RESOURCES_EXCEPTIONS_ID = '/resources/exceptions/{id}'
+    PLATFORMS_K8S_ID_RESOURCES = '/platforms/k8s/{platform_id}/resources'
     CUSTOMERS_EXCLUDED_RULES = '/customers/excluded-rules'
     INTEGRATIONS_DEFECT_DOJO = '/integrations/defect-dojo'
     INTEGRATIONS_EVENT_SOURCES = '/integrations/event-sources'
@@ -409,9 +414,6 @@ PARAM_USER_CUSTOMER = 'user_customer'
 
 AUTHORIZATION_PARAM = 'authorization'
 
-# on-prem
-DOCKER_SERVICE_MODE, SAAS_SERVICE_MODE = 'docker', 'saas'
-
 # RabbitMQ request
 EXTERNAL_DATA_ATTR = 'externalData'
 EXTERNAL_DATA_KEY_ATTR = 'externalDataKey'
@@ -544,7 +546,6 @@ class EnvEnum(str, Enum):
 
 
 class Env(EnvEnum):
-    SERVICE_MODE = 'SRE_SERVICE_MODE', ('CAAS_SERVICE_MODE',)
     SYSTEM_CUSTOMER_NAME = (
         'SRE_SYSTEM_CUSTOMER_NAME',
         ('SYSTEM_CUSTOMER_NAME',),
@@ -579,10 +580,6 @@ class Env(EnvEnum):
         (),
         '65',
     )
-
-    # Cognito either one will work, but ID faster and safer
-    USER_POOL_NAME = 'SRE_USER_POOL_NAME', ('CAAS_USER_POOL_NAME',)
-    USER_POOL_ID = 'SRE_USER_POOL_ID', ('CAAS_USER_POOL_ID',)
 
     # rbac
     ALLOW_DISABLED_PERMISSIONS_FOR_STANDARD_USERS = (
@@ -626,10 +623,6 @@ class Env(EnvEnum):
         'SRE_BATCH_JOB_LIFETIME_MINUTES',
         ('CAAS_BATCH_JOB_LIFETIME_MINUTES',),
         '180',
-    )
-    EB_SERVICE_ROLE_TO_INVOKE_BATCH = (
-        'SRE_EB_SERVICE_ROLE_TO_INVOKE_BATCH',
-        ('CAAS_EB_SERVICE_ROLE_TO_INVOKE_BATCH',),
     )
 
     # events
@@ -820,22 +813,6 @@ class Env(EnvEnum):
         '90',
     )
 
-    @classmethod
-    def is_docker(cls) -> bool:
-        return cls.SERVICE_MODE.get() == DOCKER_SERVICE_MODE
-
-    @classmethod
-    def is_mongo_db(cls) -> bool:
-        """
-        Determines if MongoDB is being used as the database.
-        Currently based on docker mode.
-        """
-        return cls.is_docker()
-
-    @classmethod
-    def get_db_type(cls) -> Literal['MongoDB', 'DynamoDB']:
-        return 'MongoDB' if cls.is_mongo_db() else 'DynamoDB'
-
 
 class BatchJobEnv(EnvEnum):
     """
@@ -952,6 +929,7 @@ class Permission(str, Enum):
         False,
         True,
     )
+    REPORT_DASHBOARD = 'report:get_dashboard', False, True
 
     JOB_QUERY = 'job:query', False, True
     JOB_GET = 'job:get', False, True
@@ -1094,6 +1072,7 @@ class Permission(str, Enum):
     USERS_RESET_PASSWORD = 'users:reset_password'
 
     RESOURCES_GET = 'resources:get'
+    PLATFORM_RESOURCES_GET = 'platform_resources:get', False, True
 
     RESOURCES_EXCEPTIONS_GET = 'resources_exceptions:get'
     RESOURCES_EXCEPTIONS_CREATE = 'resources_exceptions:create'
@@ -1286,6 +1265,7 @@ class SettingKey(str, Enum):
     MAX_CRON_NUMBER = 'MAX_CRON_NUMBER'
     MAX_RABBITMQ_REQUEST_SIZE = 'MAX_RABBITMQ_REQUEST_SIZE'
     REPORT_DELIVERY_CURSORS = 'REPORT_DELIVERY_CURSORS'
+    CUSTODIAN_RESOURCE_NAMES_MAP = 'CUSTODIAN_RESOURCE_NAMES_MAP'
 
 
 class PlatformType(str, Enum):
@@ -1623,6 +1603,11 @@ EXCLUDE_RESOURCE_TYPES = {
     'aws.codedeploy-config',
     'azure.roledefinition',  # there is huge number (~700 in my subscription) of these and I'm not sure how useful they are
     'gcp.region',
+    # these require group/version/plural to be set in the policy query
+    # so they cannot be collected by a generic "describe everything" policy
+    'k8s.custom-cluster-resource',
+    'k8s.custom-namespaced-resource',
+    'k8s.secret',  # do not persist secret material in the inventory
 }
 
 
@@ -1631,9 +1616,6 @@ class ResourcesCollectorType(str, Enum):
     AZURE_RESOURCE_GRAPH = 'azure_resource_graph'
     FOCUS = 'focus'
     CUSTODIAN = 'cloud_custodian'
-
-
-DEPRECATED_RULE_SUFFIX = '-deprecated'
 
 
 class ResourceExceptionType(str, Enum):

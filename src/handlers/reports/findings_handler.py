@@ -5,6 +5,7 @@ from modular_sdk.services.tenant_service import TenantService
 from typing_extensions import Self
 
 from handlers import AbstractHandler, Mapping
+from helpers import NextToken
 from helpers.constants import (
     Cloud,
     Endpoint,
@@ -12,7 +13,11 @@ from helpers.constants import (
     JobState,
     ReportFormat,
 )
-from helpers.lambda_response import LambdaOutput, build_response
+from helpers.lambda_response import (
+    LambdaOutput,
+    ResponseFactory,
+    build_response,
+)
 from models.job import Job
 from services import SP, modular_helpers, obfuscation
 from services.job_service import JobService
@@ -122,7 +127,7 @@ class FindingsReportHandler(AbstractHandler):
         if href:
             return ReportResponse(
                 job,
-                self._rs.one_time_url_json(report, f"{job.id}.json"),
+                self._rs.one_time_url_json(report, f"{job.id}-findings.json"),
                 dictionary_url,
                 ReportFormat.JSON,
             ).dict()
@@ -136,29 +141,34 @@ class FindingsReportHandler(AbstractHandler):
         tenant = self._ts.get(tenant_name)
         tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
 
-        jobs = self._job_service.get_by_tenant_name(
+        cursor = self._job_service.get_by_tenant_name(
             tenant_name=tenant_name,
             job_types=event.job_types,
             status=JobState.SUCCEEDED,
             start=event.start_iso,
             end=event.end_iso,
+            filter_condition=Job.platform_id.does_not_exist(),
+            limit=event.limit,
+            last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
-        jobs = filter(lambda x: not x.is_platform_job, jobs)
 
         meta = self._rs.fetch_meta(tenant)
-        job_collection: list[tuple[Job, ShardsCollection]] = []
-        for job in jobs:
+        cloud = tenant_cloud(tenant)
+        items = []
+        for job in cursor:
             col = self._rs.job_collection(tenant, job)
             col.meta = meta
-            job_collection.append((job, col))
-        return build_response(
-            content=map(
-                lambda pair: self._collection_response(
-                    *pair,
-                    cloud=tenant_cloud(tenant),
+            items.append(
+                self._collection_response(
+                    job=job,
+                    collection=col,
+                    cloud=cloud,
                     href=event.href,
                     obfuscated=event.obfuscated,
-                ),
-                job_collection,
+                )
             )
+        return (
+            ResponseFactory()
+            .items(it=items, next_token=NextToken(cursor.last_evaluated_key))
+            .build()
         )

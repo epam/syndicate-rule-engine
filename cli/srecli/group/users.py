@@ -79,11 +79,14 @@ def update(
 @users.command(cls=ViewCommand, name='delete')
 @click.option('--username', required=True, type=str,
               help='Username to delete user')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, username, customer_id):
+def delete(ctx: ContextObj, username, confirm: bool, customer_id):
     """
     Removes an existing user
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].delete_user(
         username=username,
         customer_id=customer_id
