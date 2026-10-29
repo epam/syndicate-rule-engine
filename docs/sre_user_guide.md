@@ -1466,6 +1466,6 @@ The set of provisioned services and additional features depends on the selected 
 | 1.0         | June 2024     | Initial version created                                 |
 | 1.1         | July 2024     | Minor clarifications introduced across several sections |
 | 1.2         | November 2025 | Minor changes                                           |
-| 1.3         | October 2026  | Actualized for version 5.22.0                           |
+| 1.3         | October 2026  | Actualized for version 5.23.0                           |
 
 [Go to Table of Contents](#table-of-contents)
