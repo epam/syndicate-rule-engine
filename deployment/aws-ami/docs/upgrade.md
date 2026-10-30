@@ -48,8 +48,8 @@ Expected output (versions and dates are examples):
 
 | RELEASE | DATE                 | URL                                                                | PRERELEASE | DRAFT |
 |---------|----------------------|--------------------------------------------------------------------|------------|-------|
-| 5.22.0  | 2026-XX-XXT10:00:00Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.22.0  | false      | false |
-| 5.21.0* | 2026-XX-XXT09:01:13Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.21.0  | false      | false |
+| 5.23.0  | 2026-XX-XXT10:00:00Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.23.0  | false      | false |
+| 5.22.0* | 2026-XX-XXT09:01:13Z | https://github.com/epam/syndicate-rule-engine/releases/tag/5.22.0  | false      | false |
 
 The currently installed version is marked with an asterisk `*`. Pre-releases are hidden unless
 `--allow-prereleases` is passed.

@@ -721,6 +721,10 @@ class SingleEntityReportModel(BaseModel):
     data: BaseReportEntity
 
 
+class QuestionnaireStandardsReportModel(BaseModel):
+    data: dict[str, list[str]]
+
+
 class ErrorsReportModel(BaseModel):
     items: list[ErrorReportItem] | None
     data: BaseReportJob | None  # if href=true

@@ -106,6 +106,7 @@ from services.report_service import ReportResponse, ReportService
 from services.sharding import ShardsCollection
 from validators.swagger_request_models import (
     JobQuestionnaireReportGetModel,
+    QuestionnaireStandardsGetModel,
     TenantQuestionnaireReportGetModel,
 )
 from validators.utils import validate_kwargs
@@ -1161,7 +1162,20 @@ class QuestionnaireHandler(AbstractHandler):
             Endpoint.REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME: {
                 HTTPMethod.GET: self.get_by_tenant
             },
+            Endpoint.REPORTS_QUESTIONNAIRE_STANDARDS: {
+                HTTPMethod.GET: self.get_standards
+            },
         }
+
+    @validate_kwargs
+    def get_standards(self, event: QuestionnaireStandardsGetModel):
+        metadata = self._license_service.get_customer_metadata(
+            event.customer_id
+        )
+        domain_standards = self.standards_by_domain(metadata, event.domains)
+        return build_response(
+            content=domain_standards
+        )
 
     @validate_kwargs
     def get_by_job(self, event: JobQuestionnaireReportGetModel, job_id: str):
@@ -1200,7 +1214,11 @@ class QuestionnaireHandler(AbstractHandler):
         standard = self.resolve_standard(full_cov, event.standard)
         if standard is None:
             return build_response(
-                content=f'Standard {event.standard} not found in metadata',
+                content=self.standard_error_message(
+                    metadata=metadata,
+                    cloud=cloud,
+                    standard_name=event.standard,
+                ),
                 code=HTTPStatus.NOT_FOUND,
             )
 
@@ -1239,7 +1257,11 @@ class QuestionnaireHandler(AbstractHandler):
         standard = self.resolve_standard(full_cov, event.standard)
         if standard is None:
             return build_response(
-                content=f'Standard {event.standard} not found in metadata',
+                content=self.standard_error_message(
+                    metadata=metadata,
+                    cloud=cloud,
+                    standard_name=event.standard,
+                ),
                 code=HTTPStatus.NOT_FOUND,
             )
 
@@ -1293,6 +1315,39 @@ class QuestionnaireHandler(AbstractHandler):
             if st.full_name.lower() == wanted or st.name.lower() == wanted:
                 return st
         return None
+
+    @staticmethod
+    def standards_by_domain(
+        metadata: Metadata, domains: set[str] | None = None
+    ) -> dict[str, list[str]]:
+        return {
+            domain: sorted(
+                (standard.full_name for standard in domain_metadata.full_cov),
+                key=str.lower,
+            )
+            for domain, domain_metadata in sorted(metadata.domains.items())
+            if domain_metadata.full_cov and (not domains or domain in domains)
+        }
+
+    @staticmethod
+    def standard_error_message(
+        metadata: Metadata, cloud: Cloud, standard_name: str
+    ) -> str:
+        domains = [
+            domain_name
+            for domain_name, domain in sorted(metadata.domains.items())
+            if QuestionnaireHandler.resolve_standard(
+                domain.full_cov, standard_name
+            )
+        ]
+        if domains:
+            return (
+                f'Standard {standard_name} is listed for '
+                f'{", ".join(domains)}, but this questionnaire report is '
+                f'for {cloud.value}. Run `sre report questionnaire standards` '
+                'to see standards grouped by domain.'
+            )
+        return f'Standard {standard_name} not found in metadata'
 
     @staticmethod
     def build_standard_control_to_rule_names(

@@ -981,6 +981,13 @@ class SREApiClient:
             query=sifted(kwargs),
         )
 
+    def report_questionnaire_standards(self, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_QUESTIONNAIRE_STANDARDS,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
     def report_errors_job(self, job_id, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_ERRORS_JOBS_JOB_ID,
