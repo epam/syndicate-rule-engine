@@ -203,7 +203,12 @@ def build_job_scan_cases(
             '$.[0].data.cloud',
             (tenant_describe_step.output,),
         )
-        scan_command = CLOUD_TO_COMMAND[cloud]
+        scan_command = CLOUD_TO_COMMAND.get(cloud)
+        if scan_command is None:
+            raise RuntimeError(
+                f'Cannot determine cloud of tenant {tenant.name}: '
+                f'{tenant_describe_step.output}'
+            )
         regions = ' '.join(f'--region {region}' for region in tenant.regions)
         job_scan_step = Step(
             cmd(
@@ -469,6 +474,16 @@ def build_executing_scans_cases(
     return cases
 
 
+def _executed(case: Case) -> Case:
+    """Execute the case right away and return it.
+
+    build_job_scan_cases calls the CLI while the cases are being built, so
+    the CLI must be configured and logged in before that happens.
+    """
+    case.execute()
+    return case
+
+
 def run_main_flow(
     *,
     username: str,
@@ -482,11 +497,11 @@ def run_main_flow(
     _customer_check = Equal(customer)
 
     cases: list[Case] = [
-        build_authentication_case(
+        _executed(build_authentication_case(
             username=username,
             password=password,
             api_link=api_link,
-        ),
+        )),
         build_entities_describe_case(
             settings=settings,
             customer=customer,
@@ -505,7 +520,7 @@ def run_main_flow(
         ),
     ]
 
-    for case in cases:
+    for case in cases[1:]:
         case.execute()
 
     if filename:
