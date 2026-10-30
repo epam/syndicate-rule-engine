@@ -123,7 +123,9 @@ def describe(
     has_secret,
     customer_id,
 ):
-    """Describes rule source"""
+    """
+    Describes rule source
+    """
     if rule_source_id:
         return ctx["api_client"].rule_source_get(
             rule_source_id, customer_id=customer_id
@@ -158,7 +160,9 @@ def add(
     description,
     customer_id,
 ):
-    """Creates rule source"""
+    """
+    Creates rule source
+    """
     return ctx["api_client"].rule_source_post(
         git_project_id=git_project_id,
         type=type,
@@ -193,7 +197,9 @@ def update(
     description,
     customer_id,
 ):
-    """Updates rule source"""
+    """
+    Updates rule source
+    """
     if not any(
         [
             git_project_id,
@@ -227,11 +233,14 @@ def update(
     is_flag=True,
     help="Whether to remove all rules belonging to this rule source",
 )
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, rule_source_id, delete_rules, customer_id):
+def delete(ctx: ContextObj, rule_source_id, delete_rules, confirm: bool, customer_id):
     """
     Deletes rule source
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx["api_client"].rule_source_delete(
         id=rule_source_id,
         delete_rules=delete_rules,

@@ -65,25 +65,6 @@ class EnvironmentService:
         """
         return Env.RULESETS_BUCKET_NAME.as_str()
 
-    def get_user_pool_name(self) -> str | None:
-        """
-        Api lambdas:
-        api-handler
-        configuration-api-handler
-        report-generator
-        """
-        return Env.USER_POOL_NAME.get()
-
-    def get_user_pool_id(self) -> str | None:
-        """
-        It's optional but is preferred to use this instead of user_pool_name
-        Api lambdas:
-        api-handler
-        configuration-api-handler
-        report-generator
-        """
-        return Env.USER_POOL_ID.get()
-
     def get_statistics_bucket_name(self) -> str:
         return Env.STATISTICS_BUCKET_NAME.as_str()
 
@@ -92,12 +73,6 @@ class EnvironmentService:
         api-handler
         """
         return Env.SKIP_CLOUD_IDENTIFIER_VALIDATION.as_bool()
-
-    def is_docker(self) -> bool:
-        return Env.is_docker()
-
-    def event_bridge_service_role(self) -> str | None:
-        return Env.EB_SERVICE_ROLE_TO_INVOKE_BATCH.get()
 
     def lambdas_alias_name(self) -> str | None:
         """

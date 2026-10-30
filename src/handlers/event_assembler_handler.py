@@ -20,10 +20,7 @@ from helpers.mixins import EventDrivenLicenseMixin, SubmitJobToBatchMixin
 from models.event import Event
 from models.setting import Setting
 from services import SERVICE_PROVIDER
-from services.clients.batch import (
-    BatchClient,
-    CeleryJobClient,
-)
+from services.clients.batch import CeleryJobClient
 from services.environment_service import EnvironmentService
 from services.event_driven import EventStoreService
 from services.event_driven.assembly import EventDrivenAssemblyService
@@ -63,7 +60,7 @@ class EventAssemblerHandler(SubmitJobToBatchMixin, EventDrivenLicenseMixin):
         ruleset_service: RulesetService,
         license_service: LicenseService,
         environment_service: EnvironmentService,
-        batch_client: BatchClient | CeleryJobClient,
+        batch_client: CeleryJobClient,
         job_service: JobService,
         tenant_settings_service: TenantSettingsService,
         ed_rules_service: EventDrivenRulesService,

@@ -933,6 +933,22 @@ class SREApiClient:
             query=sifted(kwargs),
         )
 
+    def report_dashboard_job(self, job_id: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_DASHBOARD_JOBS_JOB_ID,
+            path_params={'job_id': job_id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def report_dashboard_tenant(self, tenant_name: str, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_DASHBOARD_TENANTS_TENANT_NAME,
+            path_params={'tenant_name': tenant_name},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
     def report_compliance_jobs(self, job_id, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID,
@@ -1135,6 +1151,16 @@ class SREApiClient:
     def resources_by_arn_get(self, **kwargs) -> SREResponse:
         return self.make_request(
             path=Endpoint.RESOURCES_ARN,
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def platform_k8s_resources_get(
+        self, platform_id: str, **kwargs
+    ) -> SREResponse:
+        return self.make_request(
+            path=Endpoint.PLATFORMS_K8S_ID_RESOURCES,
+            path_params={'platform_id': platform_id},
             method=HTTPMethod.GET,
             query=sifted(kwargs),
         )

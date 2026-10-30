@@ -11,15 +11,14 @@ if TYPE_CHECKING:
 
     from services.cadf_event_sender import CadfEventSender
     from services.chronicle_service import ChronicleInstanceService
-    from services.clients.batch import BatchClient, CeleryJobClient
-    from services.clients.cognito import BaseAuthClient, CognitoClient
-    from services.clients.event_bridge import EventBridgeClient
+    from services.clients.batch import CeleryJobClient
+    from services.clients.cognito import BaseAuthClient
     from services.clients.iam import IAMClient
     from services.clients.mongo_ssm_auth_client import MongoAndSSMAuthClient
     from services.clients.s3 import ModularAssumeRoleS3Service, S3Client
     from services.clients.ssm import CachedSSMClient
-    from services.clients.step_function import ScriptClient, StepFunctionClient
     from services.clients.sts import StsClient
+    from services.dashboard_report_service import DashboardReportService
     from services.defect_dojo_service import DefectDojoService
     from services.environment_service import EnvironmentService
     from services.event_driven import (
@@ -79,36 +78,22 @@ class ServiceProvider(metaclass=SingletonMeta):
 
     @cached_property
     def ssm(self) -> CachedSSMClient:
-        from services.clients.ssm import (
-            CachedSSMClient,
-            SSMClient,
-            VaultSSMClient,
-        )
+        from services.clients.ssm import CachedSSMClient, VaultSSMClient
 
-        env = self.environment_service
-        if env.is_docker():
-            cl = VaultSSMClient()
-        else:
-            cl = SSMClient(environment_service=env)
+        cl = VaultSSMClient()
         return CachedSSMClient(cl)
 
     @cached_property
     def sts(self) -> StsClient:
         from services.clients.sts import StsClient
 
-        if self.environment_service.is_docker():
-            return StsClient.build()
         return StsClient.build()
 
     @cached_property
-    def batch(self) -> BatchClient | CeleryJobClient:
-        if self.environment_service.is_docker():
-            from services.clients.batch import CeleryJobClient
+    def batch(self) -> CeleryJobClient:
+        from services.clients.batch import CeleryJobClient
 
-            return CeleryJobClient.build()
-        from services.clients.batch import BatchClient
-
-        return BatchClient.build()
+        return CeleryJobClient.build()
 
     @cached_property
     def onprem_users_client(self) -> MongoAndSSMAuthClient:
@@ -119,29 +104,14 @@ class ServiceProvider(metaclass=SingletonMeta):
         return MongoAndSSMAuthClient(ssm_client=self.ssm)
 
     @cached_property
-    def saas_users_client(self) -> CognitoClient:
-        from services.clients.cognito import CognitoClient
-
-        return CognitoClient(environment_service=self.environment_service)
-
-    @cached_property
     def users_client(self) -> BaseAuthClient:
-        if self.environment_service.is_docker():
-            return self.onprem_users_client
-        return self.saas_users_client
+        return self.onprem_users_client
 
     @cached_property
     def modular_client(self) -> ModularServiceProvider:
         from modular_sdk.modular import ModularServiceProvider
 
         return ModularServiceProvider()
-
-    @cached_property
-    def events(self) -> EventBridgeClient:
-        from services.clients.event_bridge import EventBridgeClient
-
-        # TODO: probably not used
-        return EventBridgeClient.build()
 
     @cached_property
     def iam(self) -> IAMClient:
@@ -301,6 +271,19 @@ class ServiceProvider(metaclass=SingletonMeta):
         )
 
     @cached_property
+    def dashboard_report_service(self) -> DashboardReportService:
+        from services.dashboard_report_service import DashboardReportService
+
+        return DashboardReportService(
+            s3_client=self.s3,
+            environment_service=self.environment_service,
+            license_service=self.license_service,
+            resources_service=self.resources_service,
+            platform_service=self.platform_service,
+            settings_service=self.settings_service,
+        )
+
+    @cached_property
     def rabbitmq_service(self) -> RabbitMQService:
         from services.rabbitmq_service import RabbitMQService
 
@@ -339,20 +322,6 @@ class ServiceProvider(metaclass=SingletonMeta):
             defect_dojo_service=self.defect_dojo_service,
             chronicle_instance_service=self.chronicle_instance_service,
         )
-
-    @cached_property
-    def step_function(self) -> ScriptClient | StepFunctionClient:
-        from services.clients.step_function import (
-            ScriptClient,
-            StepFunctionClient,
-        )
-
-        if self.environment_service.is_docker():
-            return ScriptClient(environment_service=self.environment_service)
-        else:
-            return StepFunctionClient(
-                environment_service=self.environment_service
-            )
 
     @cached_property
     def defect_dojo_service(self) -> DefectDojoService:

@@ -107,11 +107,11 @@ compose-logs: ## Tail compose logs
 
 update-meta: ## Regenerate admin_policy.json
 	# updating src/admin_policy.json
-	python src/main.py show_permissions | python -c "import sys,json;json.dump({'customer':'', 'name':'admin_policy','permissions': json.load(sys.stdin)},sys.stdout,indent=2)" > src/admin_policy.json
+	python src/main.py show-permissions | python -c "import sys,json;json.dump({'customer':'', 'name':'admin_policy','permissions': json.load(sys.stdin)},sys.stdout,indent=2)" > src/admin_policy.json
 
 
 openapi-spec.json: src/validators/registry.py src/validators/swagger_request_models.py src/validators/swagger_response_models.py src/helpers/constants.py ## Generate OpenAPI spec
-	python src/main.py generate_openapi > openapi-spec.json
+	python src/main.py generate-openapi > openapi-spec.json
 
 
 clean: ## Remove caches, coverage, and logs

@@ -93,15 +93,19 @@ def describe(ctx: ContextObj, customer_id):
 
 
 @re.command(cls=ViewCommand, name='delete')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
 @require_maestro_integration(integration_type='self')
 def delete(
     ctx: ContextObj,
+    confirm: bool,
     customer_id,
 ):
     """
     Deletes self integration
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].sre_delete(customer_id=customer_id)
 
 

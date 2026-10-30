@@ -8,13 +8,13 @@ service:
 
 image:
   repository: mongo
-  tag: 5.0.32
+  tag: 8.0.28
   pullPolicy: IfNotPresent
 
 
 persistence:
   accessMode: ReadWriteOnce
-  size: 10Gi
+  size: 4Gi
   storageClass: standard
   hostPath: /data/mongo
 

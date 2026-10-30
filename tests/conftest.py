@@ -38,7 +38,6 @@ TEST_ENVS = {
     'AWS_DEFAULT_REGION': 'us-east-1',
     'SRE_SYSTEM_CUSTOMER_NAME': 'TEST_SYSTEM_CUSTOMER',
     'SRE_INNER_CACHE_TTL_SECONDS': '0',
-    'SRE_SERVICE_MODE': 'docker',
     'SRE_MONGO_URI': 'mongodb://testing',
     'SRE_MONGO_DB_NAME': 'custodian-as-a-service-testing',
     'SRE_MINIO_ENDPOINT': 'http://testing',

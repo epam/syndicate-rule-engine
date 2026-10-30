@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.22.0] - 2026-11-02
+
+### Added
+- Added support for extended domain coverage metadata in `tech_cov` and `full_cov`, including control titles and section hierarchy in questionnaire reports
+- Added an account level `total` coverage that combines all the regions to compliance reports:
+  - `GET /reports/compliance/jobs/{job_id}`
+  - `GET /reports/compliance/tenants/{tenant_name}`
+- Added Kubernetes resources inventory collection: the inventory of each registered K8S
+  platform is now collected alongside tenants' cloud resources by the resource collector
+- Added the `sre report dashboard jobs` CLI command to generate an Excel dashboard for a scan job or tenant
+- Added a new endpoint `GET /platforms/k8s/{platform_id}/resources` that returns the
+  collected inventory of a K8S platform (permission `platform_resources:get`).
+  It is the only way to query K8S resources: `GET /resources` accepts no
+  `platform_id`/`namespace` filters because those are indexed per platform
+- Added the ability to configure `SRE_CELERY_PROCESS_PERIODIC_RULES_SCHEDULE` via Helm chart values
+- Added pagination to tenant-level job reports (digests, details, findings, and resources) using `limit` and `next_token`
+- Added `--href` support to digest and resource reports to return presigned JSON download URLs per job
+
+### Fixed
+- Fixed the request validation for `POST /reports/push/dojo` endpoint
+
+### Changed
+- Deprecated rules now keep their rule IDs and are identified by a `[DEPRECATED]` description prefix in reports and metrics
+- Added a report type suffix to presigned report download filenames
+- Updated versions of dependencies:
+    - `boto3` from `~=1.43.3` to `~=1.43.78`
+    - `botocore` from `~=1.43.3` to `~=1.43.78`
+    - `cachetools` from `~=7.1.6` to `~=7.1.8`
+    - `c7n` from `0.9.51` to `0.9.52`
+    - `c7n-azure` from `0.7.50` to `0.7.51`
+    - `c7n-gcp` from `0.4.50` to `0.4.51`
+    - `c7n-kube` from `0.2.50` to `0.2.51`
+    - `cryptography` from `~=46.0.7` to `~=50.0.0`
+    - `google-api-python-client` from `~=2.194.0` to `~=2.199.0`
+    - `google-auth` from `~=2.49.2` to `~=2.56.3`
+    - `kubernetes` from `>=35,<36` to `>=36,<37`
+    - `mongo` from `5.0.32` to `8.0.28`
+    - `pydantic` from `~=2.13.4` to `~=2.13.5`
+    - `requests` from `~=2.33.1` to `~=2.34.2`
+- Use dashes instead of underscores in main.py arguments
+- Improve `next_token` field validation to prevent 500 response status code
+
 ## [5.21.3] - 2026-10-15
 
 ### Changed

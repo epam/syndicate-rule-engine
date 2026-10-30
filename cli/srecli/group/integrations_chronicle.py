@@ -58,11 +58,14 @@ def describe(ctx: ContextObj, integration_id: str | None,
 @chronicle.command(cls=ViewCommand, name='delete')
 @click.option('--integration_id', '-id', type=str, required=True,
               help='Id of Chronicle integration')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, integration_id: str, customer_id):
+def delete(ctx: ContextObj, integration_id: str, confirm: bool, customer_id):
     """
     Deletes Chronicle integration
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].chronicle_delete(
         integration_id,
         customer_id=customer_id

@@ -111,7 +111,7 @@ def update(
     customer_id: str,
 ):
     """
-    Update K8S platform event-driven settings.
+    Update K8S platform event-driven settings
     """
     return ctx['api_client'].platform_k8s_update(
         platform_id=platform_id,
@@ -123,15 +123,19 @@ def update(
 @k8s.command(cls=ViewCommand, name='delete')
 @click.option('-pid', '--platform_id', type=str, required=True,
               help='Platform id')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
 def delete(
     ctx: ContextObj,
     platform_id: str,
+    confirm: bool,
     customer_id: str,
 ):
     """
     Deregister a platform
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].platform_k8s_delete(
         platform_id,
         customer_id=customer_id,

@@ -75,7 +75,7 @@ def add(
     customer_id: str | None,
 ):
     """
-    Creates an SQS event source configuration.
+    Creates an SQS event source configuration
     """
     data = {
         "queue_url": queue_url,
@@ -110,7 +110,7 @@ def describe(
     customer_id: str | None,
 ):
     """
-    Lists SQS event sources or describes one by event_source_id.
+    Lists SQS event sources or describes one by event_source_id
     """
     if event_source_id:
         return ctx["api_client"].event_sources_get(
@@ -167,7 +167,7 @@ def update(
     customer_id: str | None,
 ):
     """
-    Updates an SQS event source configuration.
+    Updates an SQS event source configuration
     """
     data: dict = {}
     if queue_url is not None:
@@ -194,15 +194,19 @@ def update(
     required=True,
     help="Event source ID",
 )
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
 def delete(
     ctx: ContextObj,
     event_source_id: str,
+    confirm: bool,
     customer_id: str | None,
 ):
     """
     Deletes an event source by ID
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx["api_client"].event_sources_delete(
         event_source_id=event_source_id,
         customer_id=customer_id,

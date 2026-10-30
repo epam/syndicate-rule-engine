@@ -141,3 +141,57 @@ def test_raw_report_aws_job(
     )
     assert resp.status_int == 200
     # todo test presigned url?
+
+
+def _assert_total_combines_regions(content: dict) -> dict:
+    """
+    The total must exist, must cover every standard reported for any region
+    and can never be lower than a single region because the successful rules
+    of a region are always a subset of the account ones
+    """
+    assert 'total' in content, 'account level total must be returned'
+    total = content['total']
+    regions = {k: v for k, v in content.items() if k != 'total'}
+    assert regions, 'regions must still be returned along with the total'
+    for region_data in regions.values():
+        for standard, coverage in region_data.items():
+            assert standard in total
+            assert total[standard] >= coverage
+    return total
+
+
+def test_compliance_report_aws_job(
+    system_user_token, sre_client, aws_job, set_license_metadata
+):
+    set_license_metadata('metrics_metadata')
+    resp = sre_client.request(
+        f'/reports/compliance/jobs/{aws_job.id}',
+        auth=system_user_token,
+        data={
+            'customer_id': aws_job.customer_name
+        },  # on behalf because system
+    )
+    assert resp.status_int == 200
+    data = resp.json['data']
+    assert data['job_id'] == aws_job.id
+    assert data['format'] == 'json'
+    _assert_total_combines_regions(data['content'])
+
+
+def test_compliance_report_aws_tenant(
+    system_user_token, sre_client, aws_tenant, aws_job, set_license_metadata
+):
+    set_license_metadata('metrics_metadata')
+    resp = sre_client.request(
+        f'/reports/compliance/tenants/{aws_tenant.name}',
+        auth=system_user_token,
+        data={
+            'customer_id': aws_tenant.customer_name
+        },  # on behalf because system
+    )
+    assert resp.status_int == 200
+    data = resp.json['data']
+    assert data['tenant_name'] == aws_tenant.name
+    _assert_total_combines_regions(data['content'])
+
+

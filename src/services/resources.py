@@ -17,8 +17,9 @@ import re
 from typing_extensions import Self
 
 from helpers import get_path
-from helpers.constants import GLOBAL_REGION, Cloud, DEPRECATED_RULE_SUFFIX
+from helpers.constants import GLOBAL_REGION, Cloud
 from helpers.log_helper import get_logger
+from helpers.rules import is_deprecated_rule_description
 from helpers.time_helper import utc_datetime, utc_iso
 from services.metadata import EMPTY_METADATA, Metadata, RuleMetadata
 
@@ -797,7 +798,9 @@ def iter_rule_region_resources(
     # NOTE: here we iterate only over those rules that executed successfully
     # at least once even if their latest execution was failed
     for part in collection.iter_parts():
-        if not include_deprecated and part.policy.endswith(DEPRECATED_RULE_SUFFIX):
+        if not include_deprecated and is_deprecated_rule_description(
+            meta[part.policy]['description']
+        ):
             continue
         policy = part.policy
         location = part.location

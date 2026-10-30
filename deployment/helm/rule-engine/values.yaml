@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.21.3
+  tag: 5.22.0
   pullPolicy: Always
 
 replicas: 1
@@ -62,7 +62,7 @@ modular-api:
   modularApiM3adminLogLevel: ERROR
   modularApiModularSdkLogLevel: ERROR
   image:
-    tag: 4.4.2-rule-engine-5.21.3
+    tag: 4.4.2-rule-engine-5.22.0
 
 patch:
   enabled: false
@@ -139,3 +139,4 @@ celery:
     scanResources: ''  # disabled
     assembleEvents: '*/5 * * * *' # every 5 minutes
     clearEvents: '0 0 * * *' # every day at 00:00 UTC
+    processPeriodicRules: '0 10 * * *' # every day at 10:00 UTC
