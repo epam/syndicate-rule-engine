@@ -255,6 +255,7 @@ class Event(TypedDict):
 class ServiceOperationStatus(TypedDict):
     started_at: datetime
     state: str
+    license_key: NotRequired[str]
 
 
 class LicenseAllowance(TypedDict):
