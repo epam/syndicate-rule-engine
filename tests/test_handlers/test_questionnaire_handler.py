@@ -17,10 +17,9 @@ from handlers.reports.questionnaire_handler import (
 )
 from helpers.constants import Cloud, Severity
 from helpers.reports import Standard
-from services.metadata import Metadata
+from services.metadata import CoverageControl, CoverageSection, Metadata
 from services.report_service import ReportService
 from services.sharding import ShardPart, ShardsCollectionFactory
-
 
 _STANDARD = Standard('CIS Kubernetes Benchmark', 'v1.7.0')
 
@@ -61,7 +60,7 @@ def test_mapping_keeps_rules_and_selects_highest_cloud_severity():
     )
 
     result = QuestionnaireHandler.build_standard_control_to_rule_names(
-        metadata=metadata, cloud=Cloud.AWS
+        metadata=metadata, cloud=Cloud.AWS, rule_descriptions={}
     )
 
     assert result == {
@@ -81,8 +80,8 @@ def test_mapping_sets_deprecated_rules_apart():
     metadata = _metadata(
         {
             'rule-low': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
-            'rule-high-deprecated': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
-            # only looks for deprecated things, the suffix check must keep it
+            'rule-high': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
+            'rule-high-deprecated': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
             'rule-deprecated-runtime': _rule(
                 Cloud.AWS, Severity.MEDIUM, ['1.1']
             ),
@@ -90,17 +89,31 @@ def test_mapping_sets_deprecated_rules_apart():
     )
 
     control = QuestionnaireHandler.build_standard_control_to_rule_names(
-        metadata=metadata, cloud=Cloud.AWS
+        metadata=metadata,
+        cloud=Cloud.AWS,
+        rule_descriptions={
+            'rule-high': '[DEPRECATED] Old rule description',
+            'rule-high-deprecated': 'A legacy-suffixed name without the marker',
+            'rule-deprecated-runtime': 'Runtime deprecation status is checked',
+        },
     )[_STANDARD.name][_STANDARD.version_str]['1.1']
 
-    assert control['rules'] == ['rule-low', 'rule-deprecated-runtime']
-    assert control['deprecated'] == ['rule-high-deprecated']
+    assert control['rules'] == [
+        'rule-low',
+        'rule-high-deprecated',
+        'rule-deprecated-runtime',
+    ]
+    assert control['deprecated'] == ['rule-high']
     # the severity of a deprecated rule must not leak into the control
     assert control['severity'] is Severity.MEDIUM
 
 
 def test_resolve_standard_by_full_name():
-    full_cov = {_STANDARD: {'1.1': 1}}
+    full_cov = {
+        _STANDARD: {
+            '1.1': CoverageControl(total_rules=1, control_title='')
+        }
+    }
     assert (
         QuestionnaireHandler.resolve_standard(
             full_cov, 'cis kubernetes benchmark v1.7.0'
@@ -133,7 +146,10 @@ def test_build_rows_aggregates_regions_with_failure_precedence():
         metadata=metadata,
         cloud=Cloud.AWS,
         standard=_STANDARD,
-        full_controls={'1.1': 3, '1.2': 1},
+        full_controls={
+            '1.1': CoverageControl(total_rules=3, control_title=''),
+            '1.2': CoverageControl(total_rules=1, control_title=''),
+        },
     )
 
     assert [row.control_id for row in rows] == ['1.1', '1.2']
@@ -153,6 +169,32 @@ def test_build_rows_aggregates_regions_with_failure_precedence():
     assert second.coverage == 0.0
 
 
+def test_build_rows_uses_enriched_control_hierarchy_and_zero_rule_count():
+    rows = _handler().build_rows(
+        collection=ShardsCollectionFactory.from_cloud(Cloud.AWS),
+        metadata=_metadata({}),
+        cloud=Cloud.AWS,
+        standard=_STANDARD,
+        full_controls={
+            '1.1': CoverageControl(
+                total_rules=0,
+                control_title='Access control',
+                sections=[
+                    CoverageSection(id='1', title='Security'),
+                    CoverageSection(id='1.1', title='Identity'),
+                ],
+            )
+        },
+    )
+
+    assert len(rows) == 1
+    assert rows[0].control_title == 'Access control'
+    assert rows[0].section_id == '1'
+    assert rows[0].section_title == 'Security'
+    assert rows[0].sub_sections == [('1.1', 'Identity')]
+    assert rows[0].coverage == 0.0
+
+
 def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
     collection = ShardsCollectionFactory.from_cloud(Cloud.AWS)
     collection.put_parts(
@@ -160,7 +202,7 @@ def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
             ShardPart(policy='rule-a', location='eu-west-1', resources=[]),
             # deprecated and failing: must not turn the control into Fail
             ShardPart(
-                policy='rule-b-deprecated',
+                policy='rule-b',
                 location='eu-west-1',
                 resources=[{}],
             ),
@@ -169,9 +211,13 @@ def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
     metadata = _metadata(
         {
             'rule-a': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
-            'rule-b-deprecated': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
+            'rule-b': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
         }
     )
+    collection.meta = {
+        'rule-a': {'description': 'Regular rule'},
+        'rule-b': {'description': '[DEPRECATED] Retired rule'},
+    }
 
     # full_cov comes from LM and counts the deprecated rule as well
     (row,) = _handler().build_rows(
@@ -179,7 +225,9 @@ def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
         metadata=metadata,
         cloud=Cloud.AWS,
         standard=_STANDARD,
-        full_controls={'1.1': 2},
+        full_controls={
+            '1.1': CoverageControl(total_rules=2, control_title='')
+        },
     )
 
     assert row.successful_rules == ['rule-a']
@@ -240,11 +288,23 @@ def test_layout_supports_injected_hierarchy():
         'Sub-section',
         'Sub-title',
         'Control',
+        'Control Title',
         'Severity',
         'Status',
-        'Control Title',
         'Coverage',
         'Rule IDs',
+    ]
+    assert layout.row_values(rows[0]) == [
+        '1',
+        'Section one',
+        '1.a',
+        'Sub one',
+        '1.1',
+        'Do the thing',
+        None,
+        Status.NOT_EVALUATED.value,
+        0.0,
+        None,
     ]
 
 
@@ -348,6 +408,3 @@ def test_filenames_follow_the_agreed_format():
         'accumulated-cis_kubernetes_benchmark_v1_7_0-MY-TENANT'
         '-questionnaire.xlsx'
     )
-
-
-

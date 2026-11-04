@@ -102,19 +102,13 @@ class S3Client(Boto3ClientWrapper):
     @property
     def client(self):
         if self._client is None:
-            if Env.is_docker():
-                self._init_minio()
-            else:
-                self._init_s3()
+            self._init_minio()
         return self._client
 
     @property
     def resource(self):
         if self._resource is None:
-            if Env.is_docker():
-                self._init_minio()
-            else:
-                self._init_s3()
+            self._init_minio()
         return self._resource
 
     class Bucket(TypedDict):

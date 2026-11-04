@@ -635,6 +635,7 @@ MCC_RESOURCE_TYPE_MAPPING: dict[Cloud, dict[str, MCCResourceType] | dict[str, K8
         "gcp.firewall": MCCResourceType.SECURITY_GROUP,
         "gcp.loadbalancer-backend-service": MCCResourceType.LOAD_BALANCER,
         "gcp.loadbalancer-target-https-proxy": MCCResourceType.LOAD_BALANCER,
+        "gcp.loadbalancer-backend-target-https-proxy": MCCResourceType.LOAD_BALANCER,
         "gcp.armor-policy": MCCResourceType.SECURITY_GROUP,
         "gcp.dns-managed-zone": MCCResourceType.DNS_ZONE,
         
@@ -647,6 +648,7 @@ MCC_RESOURCE_TYPE_MAPPING: dict[Cloud, dict[str, MCCResourceType] | dict[str, K8
         "gcp.api-key": MCCResourceType.SECRET,
         "gcp.loadbalancer-ssl-certificate": MCCResourceType.CERTIFICATE,
         "gcp.loadbalancer-ssl-policy": MCCResourceType.SECURITY_GROUP,
+        "gcp.loadbalancer-target-https-proxy-ssl-policy": MCCResourceType.SECURITY_GROUP,
         "gcp.app-engine-certificate": MCCResourceType.CERTIFICATE,
         "gcp.app-engine-firewall-ingress-rule": MCCResourceType.SECURITY_GROUP,
         "gcp.role": MCCResourceType.IAM_ROLE,

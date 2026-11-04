@@ -1,7 +1,5 @@
 # Helm Charts — Local Setup (Minikube)
 
-For local development without access to the S3 Helm repository. Uses **separate files** (`Chart.local.yaml`, `values.local.yaml`, `local-install.sh`).
-
 ## Prerequisites
 
 - Docker

@@ -13,6 +13,7 @@ from validators.swagger_request_models import (
     CredentialsQueryModel,
     CustomerExcludedRulesPutModel,
     CustomerGetModel,
+    DashboardReportGetModel,
     DefectDojoActivationPutModel,
     DefectDojoPostModel,
     DefectDojoQueryModel,
@@ -71,6 +72,7 @@ from validators.swagger_request_models import (
     ResourcesArnGetModel,
     ResourcesExceptionsGetModel,
     ResourcesExceptionsPostModel,
+    PlatformK8sResourcesGetModel,
     ResourcesGetModel,
     ResourcesReportGetModel,
     RolePatchModel,
@@ -177,6 +179,7 @@ from validators.swagger_response_models import (
     SingleTenantExcludedRules,
     SingleTenantsModel,
     SingleUserModel,
+    TenantJobsResourcesReportModel,
     TopViolationsReportComparisonModel,
     TopViolationsReportJobsModel,
 )
@@ -366,6 +369,15 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, SingleResourceModel, None)],
         permission=Permission.RESOURCES_GET,
         description='Allows to get a resource by its ARN',
+    ),
+    EndpointInfo(
+        path=Endpoint.PLATFORMS_K8S_ID_RESOURCES,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.CONFIGURATION_API_HANDLER,
+        request_model=PlatformK8sResourcesGetModel,
+        responses=[(HTTPStatus.OK, MultipleResourcesModel, None)],
+        permission=Permission.PLATFORM_RESOURCES_GET,
+        description='Allows to get the collected inventory of a K8S platform',
     ),
     # resources exceptions
     EndpointInfo(
@@ -1106,6 +1118,26 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.REPORT_FINDINGS_DESCRIBE,
         description='Allows to get findings by latest jobs of a tenant',
     ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_DASHBOARD_JOBS_JOB_ID,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=DashboardReportGetModel,
+        responses=[(HTTPStatus.OK, SingleJobReportModel, None)],
+        permission=Permission.REPORT_DASHBOARD,
+        description='Generates an Excel dashboard for a scan job',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_DASHBOARD_TENANTS_TENANT_NAME,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=DashboardReportGetModel,
+        responses=[(HTTPStatus.OK, SingleEntityReportModel, None)],
+        permission=Permission.REPORT_DASHBOARD,
+        description=(
+            'Generates an Excel dashboard for the latest successful tenant scan'
+        ),
+    ),
     # compliance reports
     EndpointInfo(
         path=Endpoint.REPORTS_COMPLIANCE_JOBS_JOB_ID,
@@ -1272,7 +1304,7 @@ data: tuple[EndpointInfo, ...] = (
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ResourceReportJobsGetModel,
-        responses=[(HTTPStatus.OK, JobResourcesReportModel, None)],
+        responses=[(HTTPStatus.OK, TenantJobsResourcesReportModel, None)],
         permission=Permission.REPORT_RESOURCES_GET_JOBS_BATCH,
         description='Allows to get latest resources report by latest tenant jobs',
     ),

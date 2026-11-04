@@ -192,7 +192,7 @@
     "traceback": []
   },
   {
-    "policy": "ecc-aws-123-s3_test_policy-deprecated",
+    "policy": "ecc-aws-123-s3_test_policy",
     "region": "global",
     "tenant_name": "AWS-TESTING",
     "customer_name": "TEST_CUSTOMER",

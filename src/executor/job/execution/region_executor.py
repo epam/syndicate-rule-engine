@@ -23,7 +23,7 @@ from executor.job.policies.runners import Runner
 from executor.job.scan.types import FailedPoliciesMap
 from executor.job.types import PolicyDict
 from executor.plugins import register_all
-from helpers.constants import Cloud, Env
+from helpers.constants import Cloud, Env, PolicyErrorType
 from helpers.log_helper import get_logger
 from services.job_policy_filters.types import BundleFilters
 
@@ -77,10 +77,24 @@ def process_job_concurrent(
         f'{len(policies)} policies instances were loaded and due '
         f'to be executed (one policy instance per available region)'
     )
+    failed: FailedPoliciesMap = {}
+    for policy_name, error in loader.load_errors.items():
+        Runner.add_failed(
+            failed=failed,
+            region=region,
+            policy=policy_name,
+            error_type=PolicyErrorType.INTERNAL,
+            exception=error,
+            message=(
+                'Policy loading failed: '
+                f'{failure_detail_from_exception(error)}'
+            ),
+        )
     _LOG.info('Starting runner')
     runner = Runner.factory(
         cloud=cloud,
         policies=policies,
+        failed=failed,
         policy_bundle=policy_bundle,
         rule_events=rule_events,
     )

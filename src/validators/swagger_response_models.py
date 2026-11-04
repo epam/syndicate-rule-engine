@@ -35,6 +35,8 @@ class Resource(TypedDict):
     data: dict
     sync_date: datetime
     hash: str
+    platform_id: NotRequired[str]
+    namespace: NotRequired[str]
 
 
 class ResourceException(TypedDict):
@@ -712,6 +714,7 @@ class SingleJobReportModel(BaseModel):
 
 class MultipleJobReportModel(BaseModel):
     items: list[BaseReportJob]
+    next_token: str | None = None
 
 
 class SingleEntityReportModel(BaseModel):
@@ -744,6 +747,11 @@ class EntityResourcesReportModel(BaseModel):
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None
+
+
+class TenantJobsResourcesReportModel(BaseModel):
+    items: list[ResourcesReportItem] | list[BaseReportJob]
+    next_token: str | None = None
 
 
 class TopViolationsReportJobsModel(BaseModel):

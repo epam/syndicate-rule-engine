@@ -1,5 +1,5 @@
 
-## Creating AMI ami
+## Creating AMI
 
 **Start EC2 instance and log in**
 
@@ -10,7 +10,7 @@ don't matter here
 
 **Create entrypoint script**
 
-Create `sre-run.sh` (name does not matter) script by some path, say `/usr/local/bin/` and put the content of [sre/deployment/aws-ami/debian-minikube/sre-run.sh](./sre-run.sh) there:
+Create `sre-run.sh` (name does not matter) script by some path, say `/usr/local/bin/` and put the content of [deployment/aws-ami/debian-minikube/sre-run.sh](./sre-run.sh) there:
 
 ```bash
 cat <<EOF | sudo tee /usr/local/bin/sre-run.sh > /dev/null
@@ -84,18 +84,20 @@ TENANT_NAME=EXAMPLE
 
 **Installation preferences**
 - `SYNDICATE_HELM_REPOSITORY` - (default `https://charts-repository.s3.eu-west-1.amazonaws.com/syndicate/`)
-- `DOCKER_VERSION` - (default `5:27.1.1-1~debian.12~bookworm`)
+- `DOCKER_VERSION` - (default `5:29.5.3-1~<OS id>.<OS version>~<OS codename>`, for example `5:29.5.3-1~debian.12~bookworm`)
 - `MINIKUBE_VERSION` - (default `v1.33.1`)
 - `KUBERNETES_VERSION` - (default `v1.30.0`)
 - `KUBECTL_VERSION` - (default `v1.30.3`)
-- `HELM_VERSION` - (default `3.15.3-1`)
+- `HELM_VERSION` - (default `3.15.4-1`)
 - `MODULAR_SDK_ROLE_ARN` - can be specified to configure modular-sdk to use tables from DynamoDB
 - `MODULAR_SDK_REGION` - region where DynamoDB tables are located
 - `MODULAR_SDK_MONGO_URI_SSM_PARAMETER_NAME` - name of an SSM parameter where mongo URI to use for modular tables
 - `MODULAR_SDK_MONGO_DB_NAME` - name of Mongo database instead of the default 
 - `SRE_RECOMMENDATIONS_BUCKET_NAME` - name of Recommendations bucket where to put reports
-- `CF_STACK_NAME` - name of Cloud Formation stack to send SUCCESS of FAILURE signal to. By default, it's not specified and 
+- `CF_STACK_NAME` - name of Cloud Formation stack to send SUCCESS or FAILURE signal to. By default, it's not specified and 
   signals won't be sent
+- `SRE_PYTHON_BIN` - Python interpreter (name or path, e.g. `/usr/local/bin/python3.14`) used to install SRE CLI applications
+- `SRE_PYTHON_COMPAT_MODE` - what to do when the installed Python does not satisfy the requirement of a release (see `sre-init --help`)
 
 **Configuration preferences**
 - `LM_API_LINK` - link to license manager (default `https://lm.syndicate.team`)

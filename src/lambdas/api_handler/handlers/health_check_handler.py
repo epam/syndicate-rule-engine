@@ -18,7 +18,6 @@ from services.health_check_service import (
     LiveCheck,
     MinioConnectionCheck,
     MongoConnectionCheck,
-    RabbitMQConnectionCheck,
     SystemCustomerSettingCheck,
     VaultAuthTokenIsSetCheck,
     VaultConnectionCheck,
@@ -30,16 +29,11 @@ _LOG = get_logger(__name__)
 
 
 class HealthCheckHandler(AbstractHandler):
-    on_prem_specific_checks = (
+    checks_list = (
         VaultConnectionCheck,
         VaultAuthTokenIsSetCheck,
         MongoConnectionCheck,
         MinioConnectionCheck,
-    )
-    saas_specific_checks = (
-        RabbitMQConnectionCheck,
-    )
-    common_checks = (
         SystemCustomerSettingCheck,
         LicenseManagerIntegrationCheck,
         LicenseManagerClientKeyCheck,
@@ -70,12 +64,7 @@ class HealthCheckHandler(AbstractHandler):
         # TODO add order and dependent checks. For example, in case
         #  VaultConnectionCheck fails, there is no need to check
         #  VaultAuthTokenIsSetCheck (cause it will fail anyway)
-        commons = self.common_checks
-        if self._environment_service.is_docker():
-            extras = self.on_prem_specific_checks
-        else:  # saas
-            extras = self.saas_specific_checks
-        return commons + extras
+        return self.checks_list
 
     @cached_property
     def identifier_to_instance(self) -> dict[str, AbstractHealthCheck]:

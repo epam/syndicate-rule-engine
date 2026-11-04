@@ -89,8 +89,26 @@ class BasePaginationModel(BaseModel):
     @field_validator('next_token', mode='after')
     @classmethod
     def _validate_next_token(cls, next_token):
-        NextToken.deserialize(next_token)
+        decoded = NextToken.deserialize(next_token)
+        if not next_token or not decoded.value:
+            return next_token
+
+        if not isinstance(decoded.value, int):
+            raise ValueError(
+                'Failed to deserialize next_token: invalid or malformed token.'
+            )
         return next_token
+
+
+class ReportPaginationModel(BasePaginationModel):
+    """
+    Pagination over jobs for multi-job reports. Each job's report can be
+    large, so the default page size is smaller than for plain listings
+    """
+
+    limit: int = Field(
+        10, ge=1, le=50, description='Max number of jobs to process'
+    )
 
 
 class TimeRangedMixin:
@@ -221,12 +239,14 @@ class _ValidateJobTypesMixin:
     
     @model_validator(mode='after')
     def validate_job_type(self) -> Self:
-        if hasattr(self, 'type'):
-            type_ = getattr(self, 'type')
-            if type_.value == JobType.MANUAL.value:
-                self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
-            else:
-                self.job_types.add(type_)
+        type_ = getattr(self, 'type', None)
+        if not type_:
+            return self
+
+        if type_.value == JobType.MANUAL.value:
+            self.job_types.update({JobType.STANDARD, JobType.SCHEDULED})
+        else:
+            self.job_types.add(type_)
         return self
 
 
@@ -270,6 +290,21 @@ class ResourcesGetModel(BasePaginationModel):
 
 class ResourcesArnGetModel(BaseModel):
     arn: str
+
+
+class PlatformK8sResourcesGetModel(BasePaginationModel):
+    """
+    GET /platforms/k8s/{platform_id}/resources
+    """
+
+    resource_type: str = Field(
+        None,
+        description='Cloud Custodian resource type with or without cloud '
+        'prefix, e.g. k8s.pod or pod',
+    )
+    name: str = Field(None)
+    id: str = Field(None)
+    namespace: str = Field(None, description='K8S namespace')
 
 
 class ResourcesExceptionsGetModel(BasePaginationModel):
@@ -1287,11 +1322,8 @@ def sanitize_schedule(schedule: str) -> str:
             raise ValueError(_rate_error_message)
         return f'rate({value} {unit})'
     # considering it to be a cron expression.
-    # Currently, on-prem and saas cron expressions differ. On-prem only
-    # accepts standard crontab that contains five fields without year
-    # (https://en.wikipedia.org/wiki/Cron),
-    # whereas saas accepts expressions that are valid for EventBridge
-    # rule (https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html).
+    # On-prem only accepts standard crontab that contains five fields
+    # without year (https://en.wikipedia.org/wiki/Cron).
     # The validator below does not 100% ensure that the expression if
     # valid, but it does some things to make the difference less visible
     raw = schedule.replace('cron', '').strip(' ()').split()
@@ -1301,15 +1333,10 @@ def sanitize_schedule(schedule: str) -> str:
             'Must contain 5 fields: '
             '(minute hour day-of-month month day-of-week)'
         )
-    if Env.is_docker():
-        # on-prem supports only 5 fields and does not support "?"
-        raw = ['*' if i == '?' else i for i in raw]
-        if len(raw) == 6:
-            raw.pop()
-    else:
-        # saas supports only 6 fields
-        if len(raw) == 5:
-            raw.append('*')
+    # on-prem supports only 5 fields and does not support "?"
+    raw = ['*' if i == '?' else i for i in raw]
+    if len(raw) == 6:
+        raw.pop()
     return f'cron({" ".join(raw)})'
 
 
@@ -1594,12 +1621,18 @@ class McpAuthSettingPatchModel(BaseModel):
 
 
 # reports
+class DashboardReportGetModel(BaseModel):
+    pass
+
+
 class JobFindingsReportGetModel(BaseModel):
     href: bool = False
     obfuscated: bool = False
 
 
-class TenantJobsFindingsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class TenantJobsFindingsReportGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
     href: bool = False
@@ -1611,7 +1644,9 @@ class JobDetailsReportGetModel(BaseModel):
     obfuscated: bool = False
 
 
-class TenantJobsDetailsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class TenantJobsDetailsReportGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
     href: bool = False
@@ -1622,9 +1657,12 @@ class JobDigestReportGetModel(BaseModel):
     pass
 
 
-class TenantJobsDigestsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class TenantJobsDigestsReportGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
+    href: bool = False
 
 
 class JobComplianceReportGetModel(BaseModel):
@@ -2031,7 +2069,9 @@ class PlatformK8sResourcesReportGetModel(BaseModel):
     # They are not declared
 
 
-class ResourceReportJobsGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class ResourceReportJobsGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     model_config = ConfigDict(extra='allow')
 
     start_iso: datetime | date = Field(None, alias='from')
@@ -2044,6 +2084,7 @@ class ResourceReportJobsGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     full: bool = False
     exact_match: bool = True
     search_by_all: bool = False
+    href: bool = False
 
     @field_validator('region', mode='before')
     def _(cls, v: str) -> str:

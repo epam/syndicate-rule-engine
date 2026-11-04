@@ -3,6 +3,7 @@ Tests for deprecated rules functionality in MetricsCollector.
 """
 
 import datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import msgspec
@@ -11,6 +12,7 @@ import pytest
 from lambdas.metrics_updater.processors.metrics_collector import (
     DeprecatedRule,
     MetricsCollector,
+    MetricsContext,
     ReportRulesMetadata,
 )
 from services.metadata import Deprecation, Metadata, RuleMetadata
@@ -23,22 +25,22 @@ class TestDeprecatedRule:
     def test_deprecated_rule_creation_with_all_fields(self):
         """Test creating DeprecatedRule with all fields."""
         rule = DeprecatedRule(
-            id="ecc-aws-123-s3_test_policy-deprecated",
+            id="ecc-aws-123-s3_test_policy",
             description="Test deprecated rule description",
             deprecation_date="2025-12-31",
             deprecation_reason="https://example.com/deprecation-info",
         )
 
-        assert rule.id == "ecc-aws-123-s3_test_policy-deprecated"
+        assert rule.id == "ecc-aws-123-s3_test_policy"
         assert rule.description == "Test deprecated rule description"
         assert rule.deprecation_date == "2025-12-31"
         assert rule.deprecation_reason == "https://example.com/deprecation-info"
 
     def test_deprecated_rule_creation_with_minimal_fields(self):
         """Test creating DeprecatedRule with only required id field."""
-        rule = DeprecatedRule(id="ecc-aws-123-s3_test_policy-deprecated")
+        rule = DeprecatedRule(id="ecc-aws-123-s3_test_policy")
 
-        assert rule.id == "ecc-aws-123-s3_test_policy-deprecated"
+        assert rule.id == "ecc-aws-123-s3_test_policy"
         assert rule.description is msgspec.UNSET
         assert rule.deprecation_date is msgspec.UNSET
         assert rule.deprecation_reason is msgspec.UNSET
@@ -46,7 +48,7 @@ class TestDeprecatedRule:
     def test_deprecated_rule_serialization(self):
         """Test that DeprecatedRule can be serialized to JSON."""
         rule = DeprecatedRule(
-            id="ecc-aws-123-s3_test_policy-deprecated",
+            id="ecc-aws-123-s3_test_policy",
             description="Test description",
             deprecation_date="2025-12-31",
             deprecation_reason="Test reason",
@@ -66,7 +68,7 @@ class TestDeprecatedRule:
     def test_deprecated_rule_with_none_date(self):
         """Test DeprecatedRule with None deprecation_date."""
         rule = DeprecatedRule(
-            id="ecc-aws-123-s3_test_policy-deprecated",
+            id="ecc-aws-123-s3_test_policy",
             deprecation_date=None,
         )
 
@@ -81,16 +83,20 @@ class TestIterDeprecatedRules:
         """Create a mock ShardsCollection with deprecated rules."""
         collection = MagicMock(spec=ShardsCollection)
         collection.meta = {
-            "ecc-aws-123-s3_test_policy-deprecated": {
-                "description": "S3 test policy description",
+            "ecc-aws-123-s3_test_policy": {
+                "description": "[DEPRECATED] S3 test policy description",
                 "resource": "aws.s3",
             },
             "ecc-aws-150-api_gateway_rest_api_encryption_at_rest": {
                 "description": "API Gateway encryption",
                 "resource": "aws.apigateway",
             },
-            "ecc-aws-200-deprecated-rule-deprecated": {
-                "description": "Another deprecated rule",
+            "ecc-aws-200-deprecated-rule": {
+                "description": "[DEPRECATED] Another deprecated rule",
+                "resource": "aws.ec2",
+            },
+            "ecc-aws-201-legacy_rule-deprecated": {
+                "description": "A legacy suffix without the marker",
                 "resource": "aws.ec2",
             },
         }
@@ -101,7 +107,7 @@ class TestIterDeprecatedRules:
         """Create a mock Metadata with deprecation information."""
         metadata = Metadata(
             rules={
-                "ecc-aws-123-s3_test_policy-deprecated": RuleMetadata(
+                "ecc-aws-123-s3_test_policy": RuleMetadata(
                     source="AWS",
                     category="Security",
                     service_section="Storage",
@@ -115,7 +121,7 @@ class TestIterDeprecatedRules:
                         link="https://example.com/deprecation-info",
                     ),
                 ),
-                "ecc-aws-200-deprecated-rule-deprecated": RuleMetadata(
+                "ecc-aws-200-deprecated-rule": RuleMetadata(
                     source="AWS",
                     category="Security",
                     service_section="Compute",
@@ -142,12 +148,13 @@ class TestIterDeprecatedRules:
             collector._iter_deprecated_rules(mock_collection, mock_metadata)
         )
 
-        # Should find 2 deprecated rules (ending with -deprecated)
+        # Rule IDs no longer determine deprecation status.
         assert len(deprecated_rules) == 2
         rule_ids = {rule.id for rule in deprecated_rules}
-        assert "ecc-aws-123-s3_test_policy-deprecated" in rule_ids
-        assert "ecc-aws-200-deprecated-rule-deprecated" in rule_ids
+        assert "ecc-aws-123-s3_test_policy" in rule_ids
+        assert "ecc-aws-200-deprecated-rule" in rule_ids
         assert "ecc-aws-150-api_gateway_rest_api_encryption_at_rest" not in rule_ids
+        assert "ecc-aws-201-legacy_rule-deprecated" not in rule_ids
 
     def test_iter_deprecated_rules_with_description_from_collection(
         self, mock_collection, mock_metadata
@@ -161,16 +168,15 @@ class TestIterDeprecatedRules:
         rule = next(
             r
             for r in deprecated_rules
-            if r.id == "ecc-aws-123-s3_test_policy-deprecated"
+            if r.id == "ecc-aws-123-s3_test_policy"
         )
-        assert rule.description == "S3 test policy description"
+        assert rule.description == "[DEPRECATED] S3 test policy description"
 
-    def test_iter_deprecated_rules_with_description_fallback(
+    def test_iter_deprecated_rules_requires_description_marker(
         self, mock_collection, mock_metadata
     ):
-        """Test that description falls back to impact if not in collection.meta."""
-        # Remove description from collection.meta
-        mock_collection.meta["ecc-aws-123-s3_test_policy-deprecated"] = {
+        """A missing description marker does not classify a rule as deprecated."""
+        mock_collection.meta["ecc-aws-123-s3_test_policy"] = {
             "resource": "aws.s3",
         }
 
@@ -179,13 +185,9 @@ class TestIterDeprecatedRules:
             collector._iter_deprecated_rules(mock_collection, mock_metadata)
         )
 
-        rule = next(
-            r
-            for r in deprecated_rules
-            if r.id == "ecc-aws-123-s3_test_policy-deprecated"
-        )
-        # Should fallback to impact
-        assert rule.description == "Test impact"
+        assert "ecc-aws-123-s3_test_policy" not in {
+            rule.id for rule in deprecated_rules
+        }
 
     def test_iter_deprecated_rules_with_deprecation_date(
         self, mock_collection, mock_metadata
@@ -199,7 +201,7 @@ class TestIterDeprecatedRules:
         rule = next(
             r
             for r in deprecated_rules
-            if r.id == "ecc-aws-123-s3_test_policy-deprecated"
+            if r.id == "ecc-aws-123-s3_test_policy"
         )
         assert rule.deprecation_date == "2025-12-31"
 
@@ -215,7 +217,7 @@ class TestIterDeprecatedRules:
         rule = next(
             r
             for r in deprecated_rules
-            if r.id == "ecc-aws-123-s3_test_policy-deprecated"
+            if r.id == "ecc-aws-123-s3_test_policy"
         )
         assert rule.deprecation_reason == "https://example.com/deprecation-info"
 
@@ -231,7 +233,7 @@ class TestIterDeprecatedRules:
         rule = next(
             r
             for r in deprecated_rules
-            if r.id == "ecc-aws-200-deprecated-rule-deprecated"
+            if r.id == "ecc-aws-200-deprecated-rule"
         )
         # Should fallback to impact since link is empty
         assert rule.deprecation_reason == "Another impact"
@@ -240,7 +242,7 @@ class TestIterDeprecatedRules:
         """Test handling of deprecated rule without deprecation date."""
         metadata = Metadata(
             rules={
-                "ecc-aws-123-s3_test_policy-deprecated": RuleMetadata(
+                "ecc-aws-123-s3_test_policy": RuleMetadata(
                     source="AWS",
                     category="Security",
                     service_section="Storage",
@@ -262,7 +264,7 @@ class TestIterDeprecatedRules:
         rule = next(
             r
             for r in deprecated_rules
-            if r.id == "ecc-aws-123-s3_test_policy-deprecated"
+            if r.id == "ecc-aws-123-s3_test_policy"
         )
         assert rule.deprecation_date is msgspec.UNSET
 
@@ -278,13 +280,43 @@ class TestIterDeprecatedRules:
         assert len(deprecated_rules) == 0
 
 
+def test_expand_rules_statistics_excludes_description_marked_rules():
+    collector = MetricsCollector.build()
+    ctx = MetricsContext(cst=MagicMock(), licenses=(), metadata=Metadata())
+    items = [
+        SimpleNamespace(policy='stable-rule-id', region='us-east-1'),
+        SimpleNamespace(policy='legacy-deprecated-name', region='us-east-1'),
+    ]
+    meta = {
+        'stable-rule-id': {
+            'description': '[DEPRECATED] This rule is retired',
+            'resource': 'aws.s3',
+        },
+        'legacy-deprecated-name': {
+            'description': 'This name has no deprecation marker',
+            'resource': 'aws.s3',
+        },
+    }
+
+    result = list(
+        collector._expand_rules_statistics(
+            items,
+            ctx,
+            meta=meta,
+            unified_identity=SimpleNamespace(get_fingerprint=lambda _: None),
+        )
+    )
+
+    assert [item.id for item in result] == ['legacy-deprecated-name']
+
+
 class TestReportRulesMetadataWithDeprecatedRules:
     """Tests for ReportRulesMetadata with deprecated rules."""
 
     def test_report_rules_metadata_with_deprecated_rules(self):
         """Test ReportRulesMetadata can store DeprecatedRule objects."""
         deprecated_rule = DeprecatedRule(
-            id="ecc-aws-123-s3_test_policy-deprecated",
+            id="ecc-aws-123-s3_test_policy",
             description="Test description",
             deprecation_date="2025-12-31",
             deprecation_reason="Test reason",
@@ -299,20 +331,20 @@ class TestReportRulesMetadataWithDeprecatedRules:
         )
 
         assert len(metadata.deprecated) == 1
-        assert metadata.deprecated[0].id == "ecc-aws-123-s3_test_policy-deprecated"
+        assert metadata.deprecated[0].id == "ecc-aws-123-s3_test_policy"
         assert metadata.deprecated[0].description == "Test description"
 
     def test_report_rules_metadata_with_multiple_deprecated_rules(self):
         """Test ReportRulesMetadata with multiple deprecated rules."""
         deprecated_rules = (
             DeprecatedRule(
-                id="ecc-aws-123-s3_test_policy-deprecated",
+                id="ecc-aws-123-s3_test_policy",
                 description="First deprecated rule",
                 deprecation_date="2025-12-31",
                 deprecation_reason="Reason 1",
             ),
             DeprecatedRule(
-                id="ecc-aws-200-deprecated-rule-deprecated",
+                id="ecc-aws-200-deprecated-rule",
                 description="Second deprecated rule",
                 deprecation_date="2026-01-15",
                 deprecation_reason="Reason 2",
@@ -328,13 +360,13 @@ class TestReportRulesMetadataWithDeprecatedRules:
         )
 
         assert len(metadata.deprecated) == 2
-        assert metadata.deprecated[0].id == "ecc-aws-123-s3_test_policy-deprecated"
-        assert metadata.deprecated[1].id == "ecc-aws-200-deprecated-rule-deprecated"
+        assert metadata.deprecated[0].id == "ecc-aws-123-s3_test_policy"
+        assert metadata.deprecated[1].id == "ecc-aws-200-deprecated-rule"
 
     def test_report_rules_metadata_serialization(self):
         """Test that ReportRulesMetadata with deprecated rules serializes correctly."""
         deprecated_rule = DeprecatedRule(
-            id="ecc-aws-123-s3_test_policy-deprecated",
+            id="ecc-aws-123-s3_test_policy",
             description="Test description",
             deprecation_date="2025-12-31",
             deprecation_reason="Test reason",
@@ -387,8 +419,8 @@ class TestDeprecatedRulesIntegration:
         """Create a mock collection with both regular and deprecated rules."""
         collection = MagicMock(spec=ShardsCollection)
         collection.meta = {
-            "ecc-aws-123-s3_test_policy-deprecated": {
-                "description": "Deprecated S3 policy",
+            "ecc-aws-123-s3_test_policy": {
+                "description": "[DEPRECATED] Deprecated S3 policy",
                 "resource": "aws.s3",
             },
             "ecc-aws-150-api_gateway_rest_api_encryption_at_rest": {
@@ -403,7 +435,7 @@ class TestDeprecatedRulesIntegration:
         """Create metadata with deprecation info."""
         return Metadata(
             rules={
-                "ecc-aws-123-s3_test_policy-deprecated": RuleMetadata(
+                "ecc-aws-123-s3_test_policy": RuleMetadata(
                     source="AWS",
                     category="Security",
                     service_section="Storage",
@@ -436,7 +468,7 @@ class TestDeprecatedRulesIntegration:
 
         # Simulate scope intersection
         scope = {
-            "ecc-aws-123-s3_test_policy-deprecated",
+            "ecc-aws-123-s3_test_policy",
             "ecc-aws-150-api_gateway_rest_api_encryption_at_rest",
         }
         deprecated_in_scope = tuple(
@@ -444,8 +476,8 @@ class TestDeprecatedRulesIntegration:
         )
 
         assert len(deprecated_in_scope) == 1
-        assert deprecated_in_scope[0].id == "ecc-aws-123-s3_test_policy-deprecated"
-        assert deprecated_in_scope[0].description == "Deprecated S3 policy"
+        assert deprecated_in_scope[0].id == "ecc-aws-123-s3_test_policy"
+        assert deprecated_in_scope[0].description == "[DEPRECATED] Deprecated S3 policy"
         assert deprecated_in_scope[0].deprecation_date == "2025-12-31"
         assert (
             deprecated_in_scope[0].deprecation_reason
@@ -455,7 +487,7 @@ class TestDeprecatedRulesIntegration:
     def test_deprecated_rules_json_structure(self):
         """Test that deprecated rules serialize to expected JSON structure."""
         deprecated_rule = DeprecatedRule(
-            id="ecc-aws-123-s3_test_policy-deprecated",
+            id="ecc-aws-123-s3_test_policy",
             description="Test deprecated rule",
             deprecation_date="2025-12-31",
             deprecation_reason="Rule is being replaced",
@@ -470,13 +502,13 @@ class TestDeprecatedRulesIntegration:
         assert '"description"' in json_str
         assert '"deprecation_date"' in json_str
         assert '"deprecation_reason"' in json_str
-        assert "ecc-aws-123-s3_test_policy-deprecated" in json_str
+        assert "ecc-aws-123-s3_test_policy" in json_str
         assert "2025-12-31" in json_str
 
     def test_report_rules_metadata_json_structure(self):
         """Test that ReportRulesMetadata with deprecated rules has correct JSON structure."""
         deprecated_rule = DeprecatedRule(
-            id="ecc-aws-123-s3_test_policy-deprecated",
+            id="ecc-aws-123-s3_test_policy",
             description="Test description",
             deprecation_date="2025-12-31",
             deprecation_reason="Test reason",

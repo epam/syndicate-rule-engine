@@ -287,15 +287,19 @@ def update(
 @exception.command(cls=ViewCommand, name='delete')
 @click.option('--exception_id', '-exid', type=str, required=True,
               help='The resource exception ID to delete')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
 def delete(
     ctx: ContextObj,
     exception_id: str,
+    confirm: bool,
     customer_id: str | None = None,
 ) -> SREResponse:
     """
     Deletes a resource exception by its ID
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].resource_exception_delete(
         exception_id=exception_id,
         customer_id=customer_id,

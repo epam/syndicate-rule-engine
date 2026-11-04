@@ -312,6 +312,21 @@ class JobService(BaseDataService[Job]):
             return
         return job.submitted_at
 
+    def get_latest_succeeded_job(
+        self, tenant_name: str, customer_name: str
+    ) -> Job | None:
+        jobs = self.get_by_tenant_name(
+            tenant_name=tenant_name,
+            status=JobState.SUCCEEDED,
+            filter_condition=(
+                (Job.customer_name == customer_name)
+                & (Job.stopped_at > '')
+            ),
+            ascending=False,
+            limit=1,
+        )
+        return next(jobs, None)
+
     def get_platform_last_job_date(self, platform: Platform) -> str | None:
         if Job.is_mongo_model():
             return self._mongo_last_job_date(

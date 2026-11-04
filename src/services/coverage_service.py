@@ -5,6 +5,8 @@ from typing import Annotated, Any, Generator
 import msgspec
 from typing_extensions import Self
 
+from services.metadata import CoverageControl
+
 PercentFloat = Annotated[float, msgspec.Meta(ge=-1.0, le=1.0)]
 
 
@@ -118,10 +120,14 @@ class StandardCoverageCalculator:
 
 
 def calculate_controls_coverages(
-    successful: dict[str, int], total: dict[str, int]
+    successful: dict[str, int], total: dict[str, CoverageControl]
 ) -> dict[str, float]:
     res = {}
-    for control, total_n in total.items():
+    for control, control_data in total.items():
+        total_n = control_data.total_rules
+        if total_n <= 0:
+            res[control] = 0.0
+            continue
         successful_n = successful.get(control)
         if successful_n:
             res[control] = successful_n / total_n

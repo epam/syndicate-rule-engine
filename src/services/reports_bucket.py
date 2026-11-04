@@ -48,6 +48,9 @@ class ReportsBucketKeysBuilder(ABC):
     result = 'result/'
     partial = 'partial/'
     difference = 'difference/'
+    configurations = 'configurations/'
+    dashboard_template_file = 'report_dashboard_template.xlsx'
+    dashboard_raw_filename = 'dashboard.json.gz'
 
     @staticmethod
     def urljoin(*args) -> str:
@@ -168,6 +171,13 @@ class ReportsBucketKeysBuilder(ABC):
         :return:
         """
         return cls.on_demand + cls._random_filename()
+
+    @classmethod
+    def dashboard_template_key(cls) -> str:
+        return urljoin(cls.configurations, cls.dashboard_template_file)
+
+    def job_dashboard_raw(self, job: Job) -> str:
+        return urljoin(self.job_result(job), self.dashboard_raw_filename)
 
 
 class TenantReportsBucketKeysBuilder(ReportsBucketKeysBuilder):

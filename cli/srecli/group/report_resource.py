@@ -11,8 +11,10 @@ from srecli.group import (
     build_tenant_option,
     cli_response,
     from_date_report_option,
+    next_option,
     optional_job_type_option,
     to_date_report_option,
+    report_limit_option,
 )
 from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
@@ -166,7 +168,12 @@ def platform_latest(
               help='Resource name')
 @click.option('--arn', required=False, type=str,
               help='Resource arn, only for aws')
+@click.option('--href', '-hf', is_flag=True,
+              help='Return presigned URL per job instead of inline payload')
+@report_limit_option
+@next_option
 @cli_response()
+@presigned_url_hints_pack
 def jobs(
     ctx: ContextObj,
     tenant_name: str,
@@ -181,7 +188,10 @@ def jobs(
     id: Optional[str],
     name: Optional[str],
     arn: Optional[str],
+    href: bool,
     customer_id,
+    limit: int,
+    next_token: str | None,
 ) -> SREResponse:
     """
     Resource report for tenant jobs
@@ -201,7 +211,10 @@ def jobs(
         id=id,
         name=name,
         arn=arn,
-        customer_id=customer_id
+        href=href,
+        customer_id=customer_id,
+        limit=limit,
+        next_token=next_token,
     )
 
 

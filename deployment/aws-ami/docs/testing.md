@@ -6,14 +6,14 @@ This document contains Rule Engine AMI test plan divided into sections starting 
 
 ## Verifying the installation
 
-Rule Engine AMI setup currently takes about 8 minutes. Installation logs are written to `/var/log/sre-init.log`. You can 
+Rule Engine AMI setup currently takes about 10-15 minutes. Installation logs are written to `/var/log/sre-init.log`. You can 
 watch those logs in real time using the command below (in case the setup is still in progress, and you want to see what's happening).
 
 ```bash
 tail -f /var/log/sre-init.log
 ```
 
-When setup is finished a file `/usr/local/sre/success` will be created. So if you see this file, it generally means that 
+When setup is finished a file `/usr/local/sre/.success` will be created. So if you see this file, it generally means that 
 setup was successful:
 
 ```bash
@@ -71,23 +71,30 @@ syndicate re setting lm config describe --json
 
 You must understand that `syndicate` is actually `modular-cli` entrypoint that interacts with `modular-api` server running 
 inside container. Besides `modular-api` there is also `rule-engine` server, `modular-service` server, `defectdojo` server 
-and other microservices that are required by the main ones. The whole list of deployments should look like this:
+and other microservices that are required by the main ones. Rule Engine jobs and scheduled tasks are executed by 
+Celery: `rule-engine-celeryworker` runs the tasks, `rule-engine-celerybeat` publishes the scheduled ones and `valkey` 
+is the broker between them and the `rule-engine` server. `rule-engine-event-sources-consumer` ingests events from 
+event sources. The whole list of deployments should look like this:
 
 ```bash
 $ kubectl get deployment
-NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
-defectdojo-celerybeat     1/1     1            1           38m
-defectdojo-celeryworker   1/1     1            1           38m
-defectdojo-nginx          1/1     1            1           38m
-defectdojo-postgres       1/1     1            1           38m
-defectdojo-redis          1/1     1            1           38m
-defectdojo-uwsgi          1/1     1            1           38m
-minio                     1/1     1            1           38m
-modular-api               1/1     1            1           38m
-modular-service           1/1     1            1           38m
-mongo                     1/1     1            1           38m
-rule-engine               1/1     1            1           38m
-vault                     1/1     1            1           38m
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+defectdojo-celerybeat               1/1     1            1           38m
+defectdojo-celeryworker             1/1     1            1           38m
+defectdojo-nginx                    1/1     1            1           38m
+defectdojo-postgres                 1/1     1            1           38m
+defectdojo-redis                    1/1     1            1           38m
+defectdojo-uwsgi                    1/1     1            1           38m
+minio                               1/1     1            1           38m
+modular-api                         1/1     1            1           38m
+modular-service                     1/1     1            1           38m
+mongo                               1/1     1            1           38m
+rule-engine                         1/1     1            1           38m
+rule-engine-celerybeat              1/1     1            1           38m
+rule-engine-celeryworker            1/1     1            1           38m
+rule-engine-event-sources-consumer  1/1     1            1           38m
+valkey                              1/1     1            1           38m
+vault                               1/1     1            1           38m
 ```
 
 By default, only `defectdojo`, `modular-api` and `minio` services should be exposed to localhost. You can verify this 
@@ -176,7 +183,7 @@ syndicate re tenant describe
 In case instance profile is configured and hop limit is more than 2 you can submit the job (otherwise specify credentials manually):
 
 ```bash
-syndicate re job submit --tenant_name TENANT_1 --region eu-west-1  # or specify your region
+syndicate re job scan aws --tenant_name TENANT_1 --region eu-west-1  # or specify your region
 ```
 
 The job will be `RUNNING` for some time. When its status becomes `SUCCEEDED` you verify that findings appeared on Dojo 
@@ -268,7 +275,7 @@ https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/
 ## Migrate minikube
 
 ```bash
-# TODO: do not include redis volume
+# TODO: do not include valkey volume (the volume is still named `redis`)
 sre-init backup create --name main --volumes=all --secrets=all --helm-values
 ```
 
@@ -283,7 +290,7 @@ minikube profile rule-engine
 ```
 
 ```bash
-helm install -f rule-engine-helm.yaml rule-engine syndicate/rule-engine --version 5.7.0
+helm install -f rule-engine-helm.yaml rule-engine syndicate/rule-engine --version <rule-engine chart version>  # the version that was installed before, see `helm list` on the old installation
 ```
 
 ```bash

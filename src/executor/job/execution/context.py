@@ -9,7 +9,7 @@ from modular_sdk.models.tenant import Tenant
 
 from executor.job.job_failure import JobFailure, JobErrorCode, classify_exception
 from executor.job.types import JobExecutionError
-from helpers.constants import Cloud, Env, JobState
+from helpers.constants import Cloud, JobState
 from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from models.job import Job
@@ -98,7 +98,7 @@ class JobExecutionContext:
         self._work_dir = None
 
     def _update_lm_job(self):
-        if not self.job.affected_license or not Env.is_docker():
+        if not self.job.affected_license:
             return
         _LOG.info('Updating job in license manager')
         SP.license_manager_service.client.update_job(

@@ -23,7 +23,6 @@ from typing_extensions import Self
 
 from helpers import RequestContext
 from helpers.constants import (
-    DEPRECATED_RULE_SUFFIX,
     GLOBAL_REGION,
     TACTICS_ID_MAPPING,
     TS_EXCLUDED_RULES_KEY,
@@ -36,6 +35,7 @@ from helpers.constants import (
 )
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
+from helpers.rules import is_deprecated_rule_description
 from helpers.time_helper import utc_datetime, utc_iso
 from lambdas.metrics_updater.processors.base import (
     BaseProcessor,
@@ -1165,8 +1165,9 @@ class MetricsCollector(BaseProcessor):
         
         for item in it:
             p = item.policy
+            rule_meta = meta.get(p, {}) if meta else {}
             # Exclude deprecated rules
-            if p.endswith(DEPRECATED_RULE_SUFFIX):
+            if is_deprecated_rule_description(rule_meta.get('description')):
                 continue
             
             # Get fingerprint for this rule
@@ -1176,8 +1177,8 @@ class MetricsCollector(BaseProcessor):
             item.id = p
             
             # Set description and resource type
-            item.policy = meta.get(p, {}).get('description', p)
-            item.resource_type = meta.get(p, {}).get('resource', '')
+            item.policy = rule_meta.get('description', p)
+            item.resource_type = rule_meta.get('resource', '')
             
             # Get metadata
             rm = ctx.metadata.rule(p)
@@ -2774,18 +2775,13 @@ class MetricsCollector(BaseProcessor):
         Iterates over deprecated rules in the collection and returns
         expanded information including description, deprecation date, and reason.
         """
-        for policy in collection.meta:
-            if policy.endswith(DEPRECATED_RULE_SUFFIX):
+        for policy, policy_meta in collection.meta.items():
+            description = policy_meta.get('description')
+            if is_deprecated_rule_description(description):
                 # Get rule metadata
                 rule_meta = metadata.rule(policy)
                 deprecation = rule_meta.deprecation
-                
-                # Get description from collection.meta or rule metadata
-                description = collection.meta.get(policy, {}).get("description", "")
-                if not description:
-                    # Fallback to impact if description not available
-                    description = rule_meta.impact if rule_meta.impact else ""
-                
+
                 # Format deprecation date
                 deprecation_date = None
                 if isinstance(deprecation.date, date):

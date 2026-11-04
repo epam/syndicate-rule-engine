@@ -28,6 +28,7 @@ class AwsResourceIterator(ResourceIteratorStrategy):
         tenant_name: str,
         resources_service: ResourcesService,
         collector_type: ResourcesCollectorType,
+        platform_id: str | None = None,
     ) -> Generator[Resource, None, None]:
         for res in to_aws_resources(
             part, resource_type, EMPTY_RULE_METADATA, account_id
@@ -44,6 +45,7 @@ class AwsResourceIterator(ResourceIteratorStrategy):
                 collector_type=collector_type,
                 tenant_name=tenant_name,
                 customer_name=customer_name,
+                platform_id=platform_id,
             )
 
 
@@ -60,6 +62,7 @@ class AzureResourceIterator(ResourceIteratorStrategy):
         tenant_name: str,
         resources_service: ResourcesService,
         collector_type: ResourcesCollectorType,
+        platform_id: str | None = None,
     ) -> Generator[Resource, None, None]:
         for res in to_azure_resources(part, resource_type):
             yield resources_service.create(
@@ -74,6 +77,7 @@ class AzureResourceIterator(ResourceIteratorStrategy):
                 collector_type=collector_type,
                 tenant_name=tenant_name,
                 customer_name=customer_name,
+                platform_id=platform_id,
             )
 
 
@@ -90,6 +94,7 @@ class GoogleResourceIterator(ResourceIteratorStrategy):
         tenant_name: str,
         resources_service: ResourcesService,
         collector_type: ResourcesCollectorType,
+        platform_id: str | None = None,
     ) -> Generator[Resource, None, None]:
         for res in to_google_resources(
             part, resource_type, EMPTY_RULE_METADATA, account_id
@@ -106,6 +111,7 @@ class GoogleResourceIterator(ResourceIteratorStrategy):
                 collector_type=collector_type,
                 tenant_name=tenant_name,
                 customer_name=customer_name,
+                platform_id=platform_id,
             )
 
 
@@ -122,6 +128,7 @@ class K8sResourceIterator(ResourceIteratorStrategy):
         tenant_name: str,
         resources_service: ResourcesService,
         collector_type: ResourcesCollectorType,
+        platform_id: str | None = None,
     ) -> Generator[Resource, None, None]:
         for res in to_k8s_resources(part, resource_type):
             yield resources_service.create(
@@ -136,6 +143,8 @@ class K8sResourceIterator(ResourceIteratorStrategy):
                 collector_type=collector_type,
                 tenant_name=tenant_name,
                 customer_name=customer_name,
+                platform_id=platform_id,
+                namespace=res.namespace,
             )
 
 

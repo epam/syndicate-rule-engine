@@ -48,6 +48,9 @@ def describe(
     Can retrieve either:
     - A specific AWS resource by ARN (when --arn is provided)
     - A filtered list of resources (when using other filter options)
+
+    Use `sre resource describe_platform` to browse the collected inventory
+    of one specific K8S platform.
     """
     if arn:
         return ctx['api_client'].resources_by_arn_get(
@@ -59,8 +62,52 @@ def describe(
         tenant_name=tenant_name,
         resource_type=resource_type,
         location=location,
-        resource_id=resource_id,
+        id=resource_id,
         name=name,
+        limit=limit,
+        next_token=next_token,
+        customer_id=customer_id,
+    )
+
+
+@resource.command(cls=ViewCommand, name='describe_platform')
+@click.option('--platform_id', '-pid', type=str, required=True,
+              help='K8S platform id to get the collected inventory of')
+@click.option('--resource_type', '-rt', type=str,
+              help='K8S resource type to filter the results, with or without '
+                   'the cloud prefix (e.g., k8s.pod, pod)')
+@click.option('--resource_id', '-resid', type=str,
+              help='Resource ID to filter the results')
+@click.option('--name', '-n', type=str,
+              help='Resource name to filter the results')
+@click.option('--namespace', '-ns', type=str,
+              help='K8S namespace to filter the results')
+@build_limit_option()
+@next_option
+@cli_response()
+def describe_platform(
+    ctx: ContextObj,
+    platform_id: str,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+    name: str | None = None,
+    namespace: str | None = None,
+    limit: int | None = None,
+    next_token: str | None = None,
+    customer_id: str | None = None,
+) -> SREResponse:
+    """
+    Retrieves the collected inventory of one K8S platform.
+
+    Only KUBERNETES resources are returned. They have no location because
+    Kubernetes has no regions, but they do have a namespace.
+    """
+    return ctx['api_client'].platform_k8s_resources_get(
+        platform_id=platform_id,
+        resource_type=resource_type,
+        id=resource_id,
+        name=name,
+        namespace=namespace,
         limit=limit,
         next_token=next_token,
         customer_id=customer_id,

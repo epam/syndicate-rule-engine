@@ -257,6 +257,11 @@ class ProjectIamPolicyBindings(QueryResourceManager):
                 'getIamPolicy', {'resource': resource_info['project_id']})
             return iam_policy['bindings'] if 'bindings' in iam_policy else []
 
+    def get_cache_key(self, query):
+        cache_key = super().get_cache_key(query)
+        cache_key['component'] += '.iam-policy.bindings.role'
+        return cache_key
+
 
 class ProjectIamPolicyBindingsByMembers(QueryResourceManager):
     """GCP resource: https://cloud.google.com/resource-manager/reference/
@@ -293,6 +298,11 @@ class ProjectIamPolicyBindingsByMembers(QueryResourceManager):
                     remapped_members.append(member)
         return remapped_resources
 
+    def get_cache_key(self, query):
+        cache_key = super().get_cache_key(query)
+        cache_key['component'] += '.iam-policy.bindings.member'
+        return cache_key
+
 
 class NewRolesFilter(Filter):
     schema = type_schema('new-roles-filter',
@@ -311,38 +321,33 @@ class NewRolesFilter(Filter):
         by_who = self.data.get('by')
 
         for resource in resources:
-            if by_who == 'user' and resource['member'].startswith(by_who):
-                for role in resource['roles']:
-                    if role.startswith('project'):
-                        permissions = client_custom.execute_command('get', {
-                            "name": role})['includedPermissions']
-                        if op(self.data, permissions, self.data.get('value')):
-                            filtered.append(resource)
-                            break
-                    else:
-                        permissions = client_simple.execute_command('get', {
-                            "name": role})['includedPermissions']
-                        if op(self.data, permissions, self.data.get('value')):
-                            filtered.append(resource)
-                            break
-
-            elif by_who == 'serviceAccount' and resource['member'].startswith(
-                by_who):
-                for role in resource['roles']:
-                    if role.startswith('project'):
-                        permissions = client_custom.execute_command('get', {
-                            "name": role})['includedPermissions']
-                        if op(self.data, permissions, self.data.get('value')):
-                            filtered.append(resource)
-                            break
-                    else:
-                        permissions = client_simple.execute_command('get', {
-                            "name": role})['includedPermissions']
-                        if op(self.data, permissions, self.data.get('value')):
-                            filtered.append(resource)
-                            break
-            else:
+            if not (
+                by_who in ('user', 'serviceAccount')
+                and resource['member'].startswith(by_who)
+            ):
                 continue
+
+            for role_name in resource['roles']:
+                if role_name.startswith('roles/'):
+                    client = client_simple
+                elif role_name.startswith('projects/'):
+                    client = client_custom
+                else:
+                    # skip organizations/ or folders/
+                    self.log.debug(
+                        'skipping non-project level scope role %s '
+                        'for member %s',
+                        role_name,
+                        resource['member'],
+                    )
+                    continue
+
+                role = client.execute_command('get', {'name': role_name})
+                permissions = role['includedPermissions']
+                if op(self.data, permissions, self.data.get('value')):
+                    filtered.append(resource)
+                    break
+
         return filtered
 
 

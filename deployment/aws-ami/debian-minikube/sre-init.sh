@@ -97,19 +97,58 @@ Description:
 
 Usage:
   $PROGRAM $COMMAND [options]
+  $PROGRAM $COMMAND cli [options]
 
 Examples:
   $PROGRAM $COMMAND --check
   $PROGRAM $COMMAND -y
+  $PROGRAM $COMMAND cli
+
+Available Commands:
+  cli  Refresh modular-cli/sre-obfuscator CLI installations for onboarded linux users. Run '$PROGRAM $COMMAND cli --help' for details
 
 Options:
-  --backup-name        Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
-  --check              Checks whether update is available but do not try to update
-  --no-backup          Do not do backup
-  --defectdojo         Specify this flag to update Defect Dojo chart instead of Syndicate Rule Engine
-  --same-version       Fetches images and artifacts for the version of Syndicate Rule Engine that is currently installed and updates
+  --backup-name             Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
+  --check                   Checks whether update is available but do not try to update
+  --no-backup               Do not do backup
+  --no-secondary-user-clis  Do not refresh modular-cli/sre-obfuscator for other onboarded linux users (only the
+                            current user's CLIs are refreshed). By default, every update also refreshes CLIs for
+                            every other linux user detected to have them installed via pipx (see '$PROGRAM init --user')
+  --defectdojo              Specify this flag to update Defect Dojo chart instead of Syndicate Rule Engine
+  --same-version            Fetches images and artifacts for the version of Syndicate Rule Engine that is currently installed and updates
+  --confirm-migration-token Required together with -y/--yes when the target release requires a mandatory MongoDB
+                            major version migration. Run without this flag in interactive mode to see the exact
+                            token and the migration plan first
+  -h, --help                Show this message and exit
+  -y, --yes                 Automatic yes to prompts
+EOF
+}
+cmd_update_cli_usage() {
+  cat <<EOF
+Refreshes modular-cli/sre-obfuscator CLI installations for onboarded linux users
+
+Description:
+  Re-installs (via pipx) the Modular CLI and/or SRE Obfuscator CLI for the current user and for every other linux
+  user previously onboarded via '$PROGRAM init --user' (auto-detected by inspecting each user's pipx installations).
+  Useful to refresh secondary users' CLIs independently of a full '$PROGRAM update', or right after onboarding
+  several users.
+
+Usage:
+  $PROGRAM update cli [options]
+
+Examples:
+  $PROGRAM update cli
+  $PROGRAM update cli --yes --only modular-cli
+  $PROGRAM update cli --release 5.22.0
+  $PROGRAM update cli --path /usr/local/sre/releases/5.22.0 --users user1,userN
+
+Options:
+  -y, --yes            Automatic yes to the confirmation prompt
+  --release <version>  Release to source CLI artifacts from (default: latest local release)
+  --path <dir>         Custom directory with $MODULAR_CLI_ARTIFACT_NAME/$OBFUSCATOR_ARTIFACT_NAME (overrides --release)
+  --only <cli>         Update only the given CLI: 'modular-cli' or 'obfuscator'. Can be given multiple times (default: both)
+  --users <name,name>  Explicit comma-separated list of target users (default: current user + auto-detected users)
   -h, --help           Show this message and exit
-  -y, --yes            Automatic yes to prompts
 EOF
 }
 cmd_update_list_usage() {
@@ -494,6 +533,261 @@ EOF
   die "Unsupported Python version for Modular CLI installation"
 }
 
+# --- MongoDB migration (component: mongodb_migration in release.json) ---
+
+get_mongodb_migration_compat_mode() {
+  local release="$1"
+
+  release_metadata_exists "$release" || {
+    echo "warn"
+    return 0
+  }
+
+  get_release_metadata_value "$release" '.components.mongodb_migration.compatibility_mode' || echo "warn"
+}
+
+get_mongodb_migration_message() {
+  local release="$1"
+
+  release_metadata_exists "$release" || {
+    echo ""
+    return 0
+  }
+
+  get_release_metadata_value "$release" '.components.mongodb_migration.message' || echo ""
+}
+
+mongodb_migration_defined() {
+  # true if this release declares a non-empty mongodb_migration.steps list
+  local release="$1" count
+
+  release_metadata_exists "$release" || return 1
+  count="$(get_release_metadata_value "$release" '.components.mongodb_migration.steps | length' 2>/dev/null)" || return 1
+  [ -n "$count" ] && [ "$count" -gt 0 ]
+}
+
+iter_mongodb_migration_steps() {
+  # outputs one base64-encoded {"image_tag":...,"fcv":...} object per line, in order
+  local release="$1"
+  get_release_metadata_value "$release" '.components.mongodb_migration.steps[] | @base64'
+}
+
+mongodb_migration_step_field() {
+  # $1 = base64-encoded step object, $2 = jq filter
+  echo "$1" | base64 --decode | jq -r "$2"
+}
+
+get_mongodb_migration_target_fcv() {
+  local release="$1"
+  get_release_metadata_value "$release" '.components.mongodb_migration.steps[-1].fcv'
+}
+
+# --- Mongo runtime helpers ---
+
+mongo_credentials() {
+  # prints "username password" separated by a single space
+  local username password
+  username="$(get_kubectl_secret "$MONGO_SECRET_NAME" username)" || return 1
+  password="$(get_kubectl_secret "$MONGO_SECRET_NAME" password)" || return 1
+  printf '%s %s' "$username" "$password"
+}
+
+mongo_eval() {
+  # accepts a mongosh javascript expression as the first parameter, evaluates it against the mongo deployment
+  # retries a few times to ride out transient kubectl exec/mongosh connectivity blips (e.g. pod not Ready yet)
+  local creds username password attempt max_attempts="${MONGO_EVAL_MAX_ATTEMPTS:-3}" delay="${MONGO_EVAL_RETRY_DELAY:-2}" out rc
+  creds="$(mongo_credentials)" || {
+    warn "could not resolve MongoDB credentials"
+    return 1
+  }
+  read -r username password <<<"$creds"
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    if out="$(kubectl exec deployment/mongo -- mongosh --quiet -u "$username" -p "$password" --authenticationDatabase admin --eval "$1" 2>&1)"; then
+      printf '%s\n' "$out"
+      return 0
+    fi
+    rc=$?
+    _debug "mongo_eval attempt $attempt/$max_attempts failed (rc=$rc): $out"
+    [ "$attempt" -lt "$max_attempts" ] && sleep "$delay"
+  done
+  echo "$out" >&2
+  return "$rc"
+}
+
+get_mongo_db_version() { mongo_eval 'db.version()' 2>/dev/null; }
+get_mongo_fcv() { mongo_eval 'db.adminCommand({getParameter:1, featureCompatibilityVersion:1}).featureCompatibilityVersion.version' 2>/dev/null; }
+
+wait_for_mongo_ready() {
+  # kubectl rollout status can report the pod Ready before mongod actually accepts connections
+  # (e.g. it is still upgrading on-disk WiredTiger metadata after a binary version bump), so poll
+  # with a longer timeout than mongo_eval's own built-in retries before giving up
+  local timeout="${MONGO_READY_TIMEOUT:-180}" interval="${MONGO_READY_POLL_INTERVAL:-5}" waited=0
+  while [ "$waited" -lt "$timeout" ]; do
+    if mongo_eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then
+      return 0
+    fi
+    _debug "MongoDB not accepting connections yet, waited ${waited}s/${timeout}s"
+    sleep "$interval"
+    waited=$((waited + interval))
+  done
+  return 1
+}
+
+mongodb_migration_required() {
+  # true (0) if current MongoDB FCV is behind the migration target FCV declared for the release
+  local release="$1" target_fcv current_fcv
+
+  mongodb_migration_defined "$release" || return 1
+  target_fcv="$(get_mongodb_migration_target_fcv "$release")" || return 1
+  [ -z "$target_fcv" ] && return 1
+
+  current_fcv="$(get_mongo_fcv)"
+  if [ -z "$current_fcv" ]; then
+    warn "could not determine current MongoDB FCV. Assuming migration is required"
+    return 0
+  fi
+
+  dpkg --compare-versions "$current_fcv" lt "$target_fcv"
+}
+
+print_mongodb_migration_plan() {
+  local release="$1" backup_name="$2" message current_version current_fcv step image_tag fcv i=1
+
+  message="$(get_mongodb_migration_message "$release")"
+  current_version="$(get_mongo_db_version)"
+  current_fcv="$(get_mongo_fcv)"
+
+  cat <<EOF
+
+===========================================================================
+ MongoDB migration required to update to $release
+===========================================================================
+${message:+$message
+}
+Current MongoDB version: ${current_version:-unknown}
+Current MongoDB FCV:     ${current_fcv:-unknown}
+
+This step causes temporary write downtime for: ${MONGO_MIGRATION_WRITER_DEPLOYMENTS[*]}
+Backup ${backup_name:-"(none created)"} will be used to restore data automatically should anything fail.
+
+Migration steps:
+EOF
+  while IFS= read -r step; do
+    image_tag="$(mongodb_migration_step_field "$step" '.image_tag')"
+    fcv="$(mongodb_migration_step_field "$step" '.fcv')"
+    echo "  $i) upgrade MongoDB image to $image_tag, then set featureCompatibilityVersion to $fcv"
+    ((i++))
+  done < <(iter_mongodb_migration_steps "$release")
+  echo ""
+}
+
+confirm_mongodb_migration() {
+  # $1=auto_yes(0/1) $2=compat_mode $3=provided confirmation token
+  local auto_yes="$1" compat_mode="$2" confirm_token="$3"
+
+  if [ "$auto_yes" -eq 1 ]; then
+    if [ "$confirm_token" = "$MONGODB_MIGRATION_CONFIRM_TOKEN" ]; then
+      return 0
+    fi
+    if [ "$compat_mode" = "error" ]; then
+      die "Non-interactive update includes a mandatory MongoDB migration. Re-run with --confirm-migration-token $MONGODB_MIGRATION_CONFIRM_TOKEN to proceed"
+    fi
+    warn "Skipping optional MongoDB migration in non-interactive mode (compatibility_mode=$compat_mode). Pass --confirm-migration-token $MONGODB_MIGRATION_CONFIRM_TOKEN to run it"
+    return 1
+  fi
+
+  yesno "Proceed with MongoDB migration now?"
+  return 0
+}
+
+scale_mongo_migration_writers() {
+  # accepts target replica count as the only parameter
+  local deploy
+  for deploy in "${MONGO_MIGRATION_WRITER_DEPLOYMENTS[@]}"; do
+    kubectl get deployment "$deploy" >/dev/null 2>&1 || continue
+    kubectl scale deployment "$deploy" --replicas="$1" || warn "could not scale deployment $deploy to $1 replicas"
+  done
+}
+
+run_mongodb_migration_step() {
+  local image_tag="$1" fcv="$2" confirm_arg="" actual_version actual_fcv mongo_repo
+
+  echo "Upgrading MongoDB image to $image_tag"
+  # patch only the mongo deployment instead of running a full `helm upgrade` per step: a full
+  # upgrade re-renders every workload and brings the writer deployments (scaled to 0 before the
+  # loop) back up on each step. Keep the current repository, swap just the tag.
+  mongo_repo="$(kubectl get deployment mongo -o jsonpath='{.spec.template.spec.containers[?(@.name=="mongodb")].image}')" || return 1
+  mongo_repo="${mongo_repo%%:*}"
+  kubectl set image deployment/mongo "mongodb=${mongo_repo}:${image_tag}" || return 1
+  kubectl rollout status deployment/mongo --timeout="${HELM_UPGRADE_TIMEOUT}s" || return 1
+
+  echo "Waiting for MongoDB to accept connections after the image upgrade"
+  wait_for_mongo_ready || {
+    warn "MongoDB did not start accepting connections within ${MONGO_READY_TIMEOUT:-180}s after upgrading to $image_tag"
+    return 1
+  }
+
+  echo "Setting MongoDB featureCompatibilityVersion to $fcv"
+  # confirm:true has been required by MongoDB for FCV transitions from 7.0 onward
+  dpkg --compare-versions "$fcv" ge "7.0" && confirm_arg=", confirm: true"
+  mongo_eval "db.adminCommand({setFeatureCompatibilityVersion: \"$fcv\"$confirm_arg})" || return 1
+
+  actual_version="$(get_mongo_db_version)"
+  actual_fcv="$(get_mongo_fcv)"
+  if [[ "$actual_version" != "$image_tag"* ]]; then
+    warn "MongoDB version verification failed: expected version starting with $image_tag, got '$actual_version'"
+    return 1
+  fi
+  if [ "$actual_fcv" != "$fcv" ]; then
+    warn "MongoDB FCV verification failed: expected $fcv, got '$actual_fcv'"
+    return 1
+  fi
+  echo "Step succeeded: MongoDB version=$actual_version, FCV=$actual_fcv"
+}
+
+run_mongodb_migration() {
+  # $1=target release, $2=confirm token, $3=auto_yes(0/1), $4=backup name used for this update (may be empty)
+  # returns: 0 success, 1 failure (needs rollback+restore), 2 skipped (nothing was changed)
+  local release="$1" confirm_token="$2" auto_yes="$3" backup_name="$4" compat_mode step image_tag fcv failed=0
+
+  if ! mongodb_migration_defined "$release"; then
+    return 2
+  fi
+  if ! mongodb_migration_required "$release"; then
+    _debug "MongoDB migration is not required: current FCV already satisfies the target for $release"
+    return 2
+  fi
+
+  compat_mode="$(get_mongodb_migration_compat_mode "$release")"
+  print_mongodb_migration_plan "$release" "$backup_name"
+  if ! confirm_mongodb_migration "$auto_yes" "$compat_mode" "$confirm_token"; then
+    return 2
+  fi
+
+  echo "Scaling down writer workloads before MongoDB migration"
+  scale_mongo_migration_writers 0
+
+  while IFS= read -r step; do
+    image_tag="$(mongodb_migration_step_field "$step" '.image_tag')"
+    fcv="$(mongodb_migration_step_field "$step" '.fcv')"
+    if ! run_mongodb_migration_step "$image_tag" "$fcv"; then
+      failed=1
+      break
+    fi
+  done < <(iter_mongodb_migration_steps "$release")
+
+  echo "Scaling writer workloads back up"
+  scale_mongo_migration_writers 1
+
+  if [ "$failed" -eq 1 ]; then
+    warn "MongoDB migration failed"
+    return 1
+  fi
+
+  echo "MongoDB migration completed successfully"
+  return 0
+}
+
 validate_cli_artifacts() {
   local release="$1"
   local release_path="$SRE_RELEASES_PATH/$release"
@@ -509,6 +803,9 @@ get_latest_local_release() { ls "$SRE_RELEASES_PATH" | sort -Vr | head -n 1; }
 get_helm_release_version() {
   # currently the version of rule engine chart corresponds to the version of app inside
   helm get metadata "$1" -o json 2>/dev/null | jq -r '.version'
+}
+get_helm_release_revision() {
+  helm get metadata "$1" -o json 2>/dev/null | jq -er '.revision'
 }
 
 # some github api functions
@@ -620,6 +917,15 @@ user_exists() { id "$1" &>/dev/null; }
 get_kubectl_secret() {
   kubectl get secret "$1" -o jsonpath="{.data.$2}" | base64 --decode
 }
+kubectl_as_first_user() {
+  # kubectl/minikube context is only configured under $FIRST_USER's home; this script can be
+  # invoked via sudo (running as root, with no kubeconfig), so route through that user explicitly
+  if [ "$(whoami)" = "$FIRST_USER" ]; then
+    kubectl "$@"
+  else
+    sudo -u "$FIRST_USER" -H kubectl "$@"
+  fi
+}
 yesno() {
   [[ -t 0 ]] || return 0
   local response
@@ -706,6 +1012,99 @@ pipx_install_artifact() {
 
   echo "Installing '${app_name}' using Python interpreter: ${python_bin}"
   pipx install --force --python "$python_bin" "$@"
+}
+
+user_has_pipx_cli() {
+  # $1 = linux username, $2 = pipx package name (e.g. modular-cli / sre-obfuscator)
+  sudo su - "$1" -c "pipx list" 2>/dev/null | grep -q "package ${2} "
+}
+
+iter_pipx_cli_users() {
+  # outputs real linux usernames (excluding $1) that have modular-cli and/or sre-obfuscator installed via pipx
+  local exclude="$1" login uid home shell
+  while IFS=: read -r login _ uid _ _ home shell; do
+    [ "$login" = "$exclude" ] && continue
+    [ "$uid" -lt 1000 ] && continue
+    [ -d "$home" ] || continue
+    case "$shell" in
+      */nologin | */false) continue ;;
+    esac
+    if user_has_pipx_cli "$login" modular-cli || user_has_pipx_cli "$login" sre-obfuscator; then
+      echo "$login"
+    fi
+  done </etc/passwd
+}
+
+install_cli_artifacts_current_user() {
+  # $1=python_bin $2=release_path; remaining args: which CLIs to (re)install: modular-cli and/or obfuscator
+  local python_bin="$1" release_path="$2" what err=0
+  shift 2
+  for what in "$@"; do
+    case "$what" in
+      modular-cli)
+        if [ -f "$release_path/$MODULAR_CLI_ARTIFACT_NAME" ]; then
+          MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx_install_artifact "$python_bin" "modular-cli" "$release_path/$MODULAR_CLI_ARTIFACT_NAME" || err=1
+        fi
+        ;;
+      obfuscator)
+        if [ -f "$release_path/$OBFUSCATOR_ARTIFACT_NAME" ]; then
+          pipx_install_artifact "$python_bin" "sre-obfuscator" "$release_path/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" || err=1
+        fi
+        ;;
+    esac
+  done
+  return "$err"
+}
+
+install_cli_artifacts_for_user() {
+  # $1=linux username $2=python_bin $3=release_path; remaining args: which CLIs to (re)install: modular-cli and/or obfuscator
+  local user="$1" python_bin="$2" release_path="$3" what err=0
+  shift 3
+  for what in "$@"; do
+    case "$what" in
+      modular-cli)
+        if [ ! -f "$release_path/$MODULAR_CLI_ARTIFACT_NAME" ]; then
+          warn "modular CLI artifact not found in $release_path"
+          err=1
+          continue
+        fi
+        sudo su - "$user" <<EOF || err=1
+        pipx uninstall modular-cli || true
+        MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force --python "$python_bin" "$release_path/$MODULAR_CLI_ARTIFACT_NAME"
+EOF
+        ;;
+      obfuscator)
+        if [ ! -f "$release_path/$OBFUSCATOR_ARTIFACT_NAME" ]; then
+          warn "obfuscator artifact not found in $release_path"
+          err=1
+          continue
+        fi
+        sudo su - "$user" <<EOF || err=1
+        pipx uninstall sre-obfuscator || true
+        pipx install --force --python "$python_bin" "$release_path/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
+EOF
+        ;;
+    esac
+  done
+  return "$err"
+}
+
+refresh_secondary_user_clis() {
+  # $1=release tag, $2=python_bin; remaining args: which CLIs to refresh (modular-cli and/or obfuscator)
+  local release="$1" python_bin="$2" release_path="$SRE_RELEASES_PATH/$1" user users=() failed=()
+  shift 2
+  mapfile -t users < <(iter_pipx_cli_users "$(whoami)")
+  if [ "${#users[@]}" -eq 0 ]; then
+    _debug "No secondary users with pipx-installed CLIs detected"
+    return 0
+  fi
+  echo "Refreshing CLIs for other onboarded users: ${users[*]}"
+  for user in "${users[@]}"; do
+    echo "Refreshing CLIs for user $user"
+    install_cli_artifacts_for_user "$user" "$python_bin" "$release_path" "$@" || { warn "could not refresh CLIs for user $user"; failed+=("$user"); }
+  done
+  [ "${#failed[@]}" -gt 0 ] && warn "CLI refresh failed for: ${failed[*]}"
+  return 0
 }
 
 initialize_system() {
@@ -949,19 +1348,19 @@ EOF
 EOF
 
   local err=0
-  kubectl exec service/modular-api -- ./modular.py user describe --username "$target_user" &>/dev/null || err=1
+  kubectl_as_first_user exec service/modular-api -- ./modular.py user describe --username "$target_user" &>/dev/null || err=1
 
   if [ "$err" -ne 0 ]; then
     echo "Creating new modular-api user"
     new_password="$(generate_password 20 -hex)"
-    kubectl exec service/modular-api -- ./modular.py user add --username "$target_user" --group admin_group --password "$new_password"
+    kubectl_as_first_user exec service/modular-api -- ./modular.py user add --username "$target_user" --group admin_group --password "$new_password"
     sudo su - "$target_user" <<EOF
     echo "Logging in to modular-cli"
     ~/.local/bin/syndicate setup --username "$target_user" --password "$new_password" --api_path "http://127.0.0.1:8085"
     ~/.local/bin/syndicate login
 EOF
   else
-    echo "Modular api user has been initialized before"
+    echo "Modular API user has been initialized before"
   fi
 
   if [ -n "$re_username" ]; then
@@ -996,6 +1395,14 @@ download_from_github_url() {
     return 1
   fi
 }
+make_artifact_world_readable() {
+  # only the pipx-installed CLI artifacts need to be readable by other linux users (e.g. pipx install); $1=file path, $2=artifact filename
+  case "$2" in
+    "$MODULAR_CLI_ARTIFACT_NAME" | "$OBFUSCATOR_ARTIFACT_NAME")
+      chmod 644 "$1"
+      ;;
+  esac
+}
 check_asset_digest() {
   # accepts path to file and asset json
   local digest
@@ -1020,12 +1427,14 @@ pull_artifact() {
       _debug "Artifact $name already exists but has different digest. Going to download it again"
     else
       _debug "Artifact $name already exists and has the same digest. Skipping download"
+      make_artifact_world_readable "$destination" "$name"
       return 0
     fi
   fi
 
   url="$(jq -r '.url' <<<"$2")"
   if download_from_github_url "$destination" "$url"; then
+    make_artifact_world_readable "$destination" "$name"
     _debug "Downloaded $name to $destination"
     return 0
   else
@@ -1038,6 +1447,7 @@ pull_artifacts() {
   local tag
   tag="$(jq -r '.tag_name' <<<"$1")"
   mkdir -p "$SRE_RELEASES_PATH/$tag"
+  chmod 755 "$SRE_RELEASES_PATH/$tag" # release dir must stay traversable by other linux users
 
   while IFS= read -r asset; do
     if pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset"; then
@@ -1158,32 +1568,46 @@ find_asset_by_name() {
 }
 
 perform_self_update() {
-  local tag asset new_version
+  local tag asset new_version max_attempts delay attempt err
   tag="$(jq -r '.tag_name' <<<"$1")"
 
   if ! asset="$(find_asset_by_name "$1" "$SRE_INIT_ARTIFACT_NAME")"; then
-    return 1
+    # release ships no self-update artifact: nothing to swap, keep running current script
+    return 2
   fi
   if check_asset_digest "$SELF_PATH" "$asset"; then
+    # already running the target version
     return 0
   fi
 
-  pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset" || {
-    warn "could not pull self update artifact $SRE_INIT_ARTIFACT_NAME"
-    return 1
-  }
-  update_sre_init "$tag" || {
-    warn "could not update sre-init to $tag"
-    return 1
-  }
-  new_version=$("$SELF_PATH" --version | awk '{print $2}')
-  echo "Automatically updated sre-init from $VERSION to $new_version"
-  exec "$SELF_PATH" "${_ORIGINAL_ARGS[@]}"
+  max_attempts="${SRE_SELF_UPDATE_MAX_ATTEMPTS:-3}"
+  delay="${SRE_SELF_UPDATE_RETRY_DELAY:-5}"
+  attempt=1
+  while [ "$attempt" -le "$max_attempts" ]; do
+    if err="$(pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset" 2>&1)" \
+      && err="$(update_sre_init "$tag" 2>&1)"; then
+      new_version=$("$SELF_PATH" --version | awk '{print $2}')
+      echo "Automatically updated sre-init from $VERSION to $new_version"
+      exec "$SELF_PATH" "${_ORIGINAL_ARGS[@]}"
+    fi
+    warn "sre-init self-update to $tag failed (attempt $attempt/$max_attempts): ${err:-unknown error}"
+    attempt=$((attempt + 1))
+    if [ "$attempt" -le "$max_attempts" ]; then
+      sleep "$delay"
+    fi
+  done
+  return 1
 }
 
 cmd_update() {
-  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values update_defectdojo=0
-  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,defectdojo,allow-prereleases,same-version,backup-name:" -n "$PROGRAM" -- "$@")"
+  if [ "$1" = "cli" ]; then
+    shift
+    cmd_update_cli "$@"
+    return
+  fi
+
+  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values update_defectdojo=0 confirm_migration_token="" do_secondary_clis=1
+  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,defectdojo,allow-prereleases,same-version,backup-name:,confirm-migration-token:,no-secondary-user-clis" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
@@ -1207,8 +1631,16 @@ cmd_update() {
         do_patch='false'
         shift
         ;;
+      '--no-secondary-user-clis')
+        do_secondary_clis=0
+        shift
+        ;;
       '--backup-name')
         backup_name="$2"
+        shift 2
+        ;;
+      '--confirm-migration-token')
+        confirm_migration_token="$2"
         shift 2
         ;;
       '--allow-prereleases')
@@ -1270,10 +1702,23 @@ cmd_update() {
     exit 1
   fi
 
+  # fail fast, before any destructive/irreversible step (backup, self-update, mandatory MongoDB migration)
+  # is performed, if the target release cannot actually be installed via helm
+  echo "Verifying that necessary helm chart exists"
+  helm repo update syndicate || die_with_support "helm repo update failed"
+  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die_with_support "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
+
   if [ -n "$release_data" ] && [ -z "$FORBID_SELF_UPDATE" ]; then
     # if release data is available here then we can self update
-    # if it fails we just try to update using the current version of sre-init
-    perform_self_update "$release_data" || true
+    # self-update swaps this script for the target one (via exec) so newly added
+    # critical logic (e.g. mandatory MongoDB migration) actually runs; do not skip it silently
+    perform_self_update "$release_data"
+    case "$?" in
+      0 | 2) : ;; # already current, or release ships no self-update artifact: continue with current script
+      *)
+        die_with_support "sre-init self-update to $latest_tag failed after retries. Aborting so the update does not run with an outdated script that may miss mandatory migration steps. Fix connectivity/permissions and re-run, or set FORBID_SELF_UPDATE=1 to bypass at your own risk"
+        ;;
+    esac
   fi
 
   echo "The current installed version is $current_release"
@@ -1290,17 +1735,57 @@ cmd_update() {
   if [[ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" || -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ]]; then
     check_modular_cli_python_compatibility "$latest_tag" >/dev/null
   fi
+
+  local mongo_migration_needed=0 mongo_migrated=0
+  if mongodb_migration_defined "$latest_tag" && mongodb_migration_required "$latest_tag"; then
+    mongo_migration_needed=1
+    if [ "$do_backup" -eq 0 ]; then
+      warn "Ignoring --no-backup: a mandatory MongoDB migration is required for this update and needs a backup for safe rollback"
+      do_backup=1
+    fi
+  fi
+
   if [ "$do_backup" -eq 1 ]; then
     [ -z "$backup_name" ] && backup_name="$AUTO_BACKUP_PREFIX$(date +%s)"
     echo "Making backup $backup_name"
     cmd_backup_create --name "$backup_name" --volumes=minio,mongo,vault
   fi
 
-  echo "Verifying that necessary helm chart exists"
+  if [ "$mongo_migration_needed" -eq 1 ]; then
+    # captured BEFORE any migration step runs its own helm upgrade, so a failure can always
+    # roll back all the way to the exact pre-migration state, not just one revision back
+    local mongo_migration_pre_revision
+    mongo_migration_pre_revision="$(get_helm_release_revision "$HELM_RELEASE_NAME")" \
+      || die_with_support "could not resolve current helm revision before starting MongoDB migration"
+
+    helm repo update syndicate || die_with_support "helm repo update failed"
+    run_mongodb_migration "$latest_tag" "$confirm_migration_token" "$auto_yes" "$backup_name"
+    case "$?" in
+      0)
+        mongo_migrated=1
+        ;;
+      1)
+        warn "MongoDB migration failed. Rolling back to revision $mongo_migration_pre_revision (the exact state before the migration started)..."
+        helm rollback "$HELM_RELEASE_NAME" "$mongo_migration_pre_revision" --wait || die_with_support "Helm rollback failed"
+        if [ "$do_backup" -eq 1 ]; then
+          echo "Restoring backup $backup_name"
+          cmd_backup_restore --name "$backup_name"
+        fi
+        exit 1
+        ;;
+      2)
+        warn "Skipping MongoDB migration for this update"
+        ;;
+    esac
+  fi
+
   helm repo update syndicate || die_with_support "helm repo update failed"
-  helm search repo syndicate/rule-engine --version "$latest_tag" --fail-on-no-result >/dev/null 2>&1 || die_with_support "$latest_tag version $HELM_RELEASE_NAME chart not found. Cannot update"
   echo "Making helm upgrade. It should not take more than $((HELM_UPGRADE_TIMEOUT / 60)) minutes"
   helm_values="$(helm get values "$HELM_RELEASE_NAME" -o json)" # preserve only user-set values
+  if [ "$mongo_migrated" -eq 1 ]; then
+    # drop the mongo.image.tag override injected by the migration steps so the chart default drives it again
+    helm_values="$(echo "$helm_values" | jq 'if .mongo.image then .mongo.image |= del(.tag) else . end')"
+  fi
   if ! helm upgrade "$HELM_RELEASE_NAME" syndicate/rule-engine --timeout "${HELM_UPGRADE_TIMEOUT}s" --wait --wait-for-jobs --version "$latest_tag" --reset-values --values <(echo "$helm_values") --set=patch.enabled="$do_patch"; then
     warn "helm upgrade failed. Rolling back to the previous version..."
     helm rollback "$HELM_RELEASE_NAME" 0 --wait || die_with_support "Helm rollback failed"
@@ -1324,9 +1809,123 @@ cmd_update() {
     echo "Upgrading modular CLI"
     MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx_install_artifact "$cli_python_bin" "modular-cli" "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
   fi
+
+  if [ "$do_secondary_clis" -eq 1 ]; then
+    local cli_targets=()
+    [ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" ] && cli_targets+=(modular-cli)
+    [ -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ] && cli_targets+=(obfuscator)
+    [ "${#cli_targets[@]}" -gt 0 ] && refresh_secondary_user_clis "$latest_tag" "$cli_python_bin" "${cli_targets[@]}"
+  else
+    _debug "Skipping secondary users' CLI refresh (--no-secondary-user-clis)"
+  fi
+
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$SRE_INIT_ARTIFACT_NAME" ]; then
     echo "Updating sre-init"
     update_sre_init "$latest_tag" || true
+  fi
+  echo "Done"
+}
+
+cmd_update_cli() {
+  local opts auto_yes=0 release="" path="" users_arg="" only=() python_bin="" release_path="" users=() targets=()
+
+  opts="$(getopt -o "hy" --long "help,yes,release:,path:,only:,users:" -n "$PROGRAM" -- "$@")" || die "$(cmd_unrecognized)"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      -h | --help)
+        cmd_update_cli_usage
+        exit 0
+        ;;
+      -y | --yes)
+        auto_yes=1
+        shift
+        ;;
+      --release)
+        release="$2"
+        shift 2
+        ;;
+      --path)
+        path="$2"
+        shift 2
+        ;;
+      --only)
+        case "$2" in
+          modular-cli | obfuscator) : ;;
+          *) die "--only must be 'modular-cli' or 'obfuscator'" ;;
+        esac
+        only+=("$2")
+        shift 2
+        ;;
+      --users)
+        users_arg="$2"
+        shift 2
+        ;;
+      '--')
+        shift
+        break
+        ;;
+    esac
+  done
+
+  if [ -n "$path" ]; then
+    [ -n "$release" ] && warn "--release is ignored because --path is specified"
+    release_path="$path"
+    python_bin="$(resolve_python_bin)"
+  else
+    [ -z "$release" ] && release="$(get_latest_local_release)"
+    [ -z "$release" ] && die_with_support "Failed to resolve latest local release"
+    release_path="$SRE_RELEASES_PATH/$release"
+    python_bin="$(check_modular_cli_python_compatibility "$release")"
+  fi
+
+  targets=("${only[@]}")
+  [ "${#targets[@]}" -eq 0 ] && targets=(modular-cli obfuscator)
+
+  local target has_any=0
+  for target in "${targets[@]}"; do
+    case "$target" in
+      modular-cli)
+        [ -f "$release_path/$MODULAR_CLI_ARTIFACT_NAME" ] && has_any=1 || warn "modular CLI artifact not found in $release_path"
+        ;;
+      obfuscator)
+        [ -f "$release_path/$OBFUSCATOR_ARTIFACT_NAME" ] && has_any=1 || warn "obfuscator artifact not found in $release_path"
+        ;;
+    esac
+  done
+  [ "$has_any" -eq 0 ] && die "none of the requested CLI artifacts were found in $release_path"
+
+  if [ -n "$users_arg" ]; then
+    IFS=',' read -ra users <<<"$users_arg"
+  else
+    users=("$(whoami)")
+    while IFS= read -r u; do
+      users+=("$u")
+    done < <(iter_pipx_cli_users "$(whoami)")
+  fi
+
+  if [ "${#users[@]}" -eq 0 ]; then
+    echo "No users to update"
+    return 0
+  fi
+
+  echo "The following users will have their CLI(s) [${targets[*]}] refreshed from $release_path:"
+  printf '  - %s\n' "${users[@]}"
+  [[ $auto_yes -eq 1 ]] || yesno "Continue?"
+
+  local user failed=()
+  for user in "${users[@]}"; do
+    echo "Refreshing CLI(s) for user $user"
+    if [ "$user" = "$(whoami)" ]; then
+      install_cli_artifacts_current_user "$python_bin" "$release_path" "${targets[@]}" || { warn "could not refresh CLI(s) for user $user"; failed+=("$user"); }
+    else
+      install_cli_artifacts_for_user "$user" "$python_bin" "$release_path" "${targets[@]}" || { warn "could not refresh CLI(s) for user $user"; failed+=("$user"); }
+    fi
+  done
+
+  if [ "${#failed[@]}" -gt 0 ]; then
+    warn "CLI refresh failed for: ${failed[*]}"
+    return 1
   fi
   echo "Done"
 }
@@ -1957,7 +2556,7 @@ verify_installation() {
 }
 
 # Start
-VERSION="1.3.0"
+VERSION="1.4.0"
 PROGRAM="${0##*/}"
 COMMAND="$1"
 SELF_PATH=/usr/local/bin/sre-init # TODO: resolve dynamically?
@@ -2035,6 +2634,11 @@ declare -rA PV_TO_DEPLOYMENTS=(
   ["defectdojo-data"]="defectdojo-postgres"
   ["defectdojo-media"]="defectdojo-nginx,defectdojo-uwsgi,defectdojo-celeryworker"
 )
+
+# Deployments that write to MongoDB and must be paused during a mongodb_migration run
+readonly MONGO_MIGRATION_WRITER_DEPLOYMENTS=(rule-engine rule-engine-celeryworker rule-engine-celerybeat rule-engine-event-sources-consumer)
+# Must be passed via --confirm-migration-token together with -y/--yes to run a mandatory MongoDB migration non-interactively
+readonly MONGODB_MIGRATION_CONFIRM_TOKEN="${MONGODB_MIGRATION_CONFIRM_TOKEN:-MIGRATE_MONGODB}"
 
 GITHUB_CURL_HEADERS=('-H' 'X-GitHub-Api-Version: 2022-11-28')
 if [ -n "$GITHUB_TOKEN" ]; then

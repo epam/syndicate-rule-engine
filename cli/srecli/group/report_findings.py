@@ -6,9 +6,11 @@ import click
 from srecli.group import (
     build_job_id_option,
     from_date_report_option,
+    next_option,
     optional_job_type_option,
     to_date_report_option,
     SREResponse,
+    report_limit_option,
 )
 from srecli.group import ContextObj, ViewCommand, cli_response
 from srecli.group import tenant_option
@@ -33,6 +35,8 @@ def findings():
     is_flag=True,
     help='Return presigned URL instead of inline payload.',
 )
+@report_limit_option
+@next_option
 @cli_response()
 @presigned_url_hints_pack
 def jobs(
@@ -45,6 +49,8 @@ def jobs(
     href: bool,
     customer_id: str | None,
     obfuscated: bool,
+    limit: int,
+    next_token: str | None,
 ) -> SREResponse:
     """
     Describes detailed reports of jobs
@@ -71,5 +77,7 @@ def jobs(
         start_iso=from_date,
         end_iso=to_date,
         customer_id=customer_id,
-        obfuscated=obfuscated
+        obfuscated=obfuscated,
+        limit=limit,
+        next_token=next_token,
     )

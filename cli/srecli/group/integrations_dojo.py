@@ -55,11 +55,14 @@ def describe(ctx: ContextObj, integration_id: str | None,
 @dojo.command(cls=ViewCommand, name='delete')
 @click.option('--integration_id', '-id', type=str, required=True,
               help='Id of dojo integration')
+@click.option('--confirm', is_flag=True, help='Confirms the action')
 @cli_response()
-def delete(ctx: ContextObj, integration_id: str, customer_id):
+def delete(ctx: ContextObj, integration_id: str, confirm: bool, customer_id):
     """
     Deletes Dojo integration
     """
+    if not confirm:
+        raise click.UsageError('Please, specify `--confirm` flag')
     return ctx['api_client'].dojo_delete(integration_id,
                                          customer_id=customer_id)
 
@@ -217,7 +220,7 @@ def update(ctx: ContextObj, integration_id: str,
            product_type: str | None, product: str | None, engagement: str | None,
            test: str | None, attachment: str | None, customer_id):
     """
-    Update a dojo activation.
+    Update a dojo activation
     """
 
     if send_after_job == 'yes':

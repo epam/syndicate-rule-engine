@@ -15,6 +15,7 @@ from smoke.core.commons import (
     Step,
     True_,
     WaitUntil,
+    resolve_dynamic_params,
     write_cases,
 )
 from smoke.core.settings import SmokeSettings, get_settings
@@ -22,6 +23,12 @@ from smoke.core.settings import SmokeSettings, get_settings
 TenantPayload = namedtuple('TenantPayload', ['name', 'regions'])
 
 JOB_TYPE = In('manual', 'standard')
+CLOUD_TO_COMMAND = {
+    'AWS': 'aws',
+    'AZURE': 'azure',
+    'GOOGLE': 'gcp',
+    'GCP': 'gcp',
+}
 
 
 class TenantRegionsType:
@@ -171,6 +178,168 @@ def build_entities_describe_case(
     )
 
 
+def build_job_scan_cases(
+    *,
+    customer: str,
+    customer_check: Condition,
+    tenants: list[TenantPayload],
+) -> list[Case]:
+    cases: list[Case] = []
+    for tenant in tenants:
+        tenant_describe_step = Step(
+            cmd(f'tenant describe -tn {tenant.name}', customer),
+            {
+                '$.data.name': Equal(tenant.name),
+                '$.data.activation_date': NotEmpty(),
+                '$.data.customer_name': customer_check,
+                '$.data.is_active': True_(),
+                '$.data.account_id': NotEmpty(),
+                '$.data.regions': Len(operator.ge, 1),
+                '$.data.cloud': In(*CLOUD_TO_COMMAND),
+            },
+        )
+        tenant_describe_step.execute()
+        cloud = resolve_dynamic_params(
+            '$.[0].data.cloud',
+            (tenant_describe_step.output,),
+        )
+        scan_command = CLOUD_TO_COMMAND.get(cloud)
+        if scan_command is None:
+            raise RuntimeError(
+                f'Cannot determine cloud of tenant {tenant.name}: '
+                f'{tenant_describe_step.output}'
+            )
+        regions = ' '.join(f'--region {region}' for region in tenant.regions)
+        job_scan_step = Step(
+            cmd(
+                f'job scan {scan_command} '
+                f'--tenant_name {tenant.name} {regions}',
+                customer,
+            ),
+            {
+                '$.data.id': NotEmpty(),
+                '$.data.status': In('SUBMITTED', 'PENDING', 'RUNNING'),
+                '$.data.customer_name': customer_check,
+                '$.data.tenant_name': Equal(tenant.name),
+            },
+            depends_on=(tenant_describe_step,),
+        )
+
+        cases.append(
+            Case(
+                steps=(
+                    job_scan_step,
+                    WaitUntil(
+                        cmd('job describe -id $.[0].data.id', customer),
+                        {'$.data.status': Equal('SUCCEEDED')},
+                        break_if={'$.data.status': In('FAILED', 'INTERRUPTED')},
+                        depends_on=(job_scan_step,),
+                        sleep=15,
+                        timeout=1800,
+                        label='wait for job to reach SUCCEEDED status',
+                    ),
+                    Step(
+                        cmd('job describe -id $.[0].data.id', customer),
+                        {
+                            '$.data.rulesets': Len(operator.ge, 1),
+                            '$.data.stopped_at': NotEmpty(),
+                        },
+                        depends_on=(job_scan_step,),
+                        label='check rulesets and stopped_at on finished job',
+                    ),
+                ),
+                name=f'Executing scans for tenant: {tenant.name}',
+            )
+        )
+
+        cases.append(
+            Case(
+                steps=(
+                    Step(
+                        cmd(
+                            'report compliance jobs -id $.[0].data.id',
+                            customer,
+                        ),
+                        {
+                            '$.data.job_type': JOB_TYPE,
+                            **{
+                                f'$.data.content.{region}.HIPAA': NotEmpty()
+                                for region in tenant.regions
+                            },
+                            **{
+                                f'$.data.content.{region}.NERC-CIP': NotEmpty()
+                                for region in tenant.regions
+                            },
+                        },
+                        depends_on=(job_scan_step,),
+                    ),
+                    Step(
+                        cmd(
+                            f'report compliance accumulated -tn {tenant.name}',
+                            customer,
+                        ),
+                        {
+                            **{
+                                f'$.data.content.{region}.HIPAA': NotEmpty()
+                                for region in tenant.regions
+                            },
+                            **{
+                                f'$.data.content.{region}.NERC-CIP': NotEmpty()
+                                for region in tenant.regions
+                            },
+                        },
+                        depends_on=(job_scan_step,),
+                    ),
+                    Step(
+                        cmd('report digests jobs -id $.[0].data.id', customer),
+                        {
+                            '$.data.job_type': JOB_TYPE,
+                            '$.data.content.total_checks': NotEmpty(),
+                            '$.data.content.successful_checks': NotEmpty(),
+                            '$.data.content.failed_checks': NotEmpty(),
+                            '$.data.content.violating_resources': NotEmpty(),
+                        },
+                        depends_on=(job_scan_step,),
+                    ),
+                    Step(
+                        cmd('report errors jobs -id $.[0].data.id', customer),
+                        {
+                            '$.items[0].type': JOB_TYPE | Empty(),
+                            '$.items[0].content': IsInstance(dict) | Empty(),
+                        },
+                        depends_on=(job_scan_step,),
+                    ),
+                    Step(
+                        cmd('report rules jobs -id $.[0].data.id', customer),
+                        {
+                            '$.items': NotEmpty() & IsInstance(list),
+                            '$.items[0].policy': NotEmpty(),
+                            '$.items[0].region': NotEmpty(),
+                        },
+                        depends_on=(job_scan_step,),
+                    ),
+                    Step(
+                        cmd('report details jobs -id $.[0].data.id', customer),
+                        {
+                            '$.data.job_type': JOB_TYPE,
+                            '$.data.job_id': NotEmpty(),
+                            '$.data.content': IsInstance(dict),
+                            **{
+                                f'$.data.content.{region}': IsInstance(list)
+                                for region in tenant.regions
+                            },
+                        },
+                        depends_on=(job_scan_step,),
+                    ),
+                ),
+                name=f'Generating reports for tenant: {tenant.name}',
+            )
+        )
+    return cases
+
+
+# TODO: Remove this function after 2027-01-20, as it is deprecated and replaced
+#  by build_job_scan_cases
 def build_executing_scans_cases(
     *,
     customer: str,
@@ -186,10 +355,11 @@ def build_executing_scans_cases(
             ),
             {
                 '$.data.id': NotEmpty(),
-                '$.data.status': In('SUBMITTED', 'PENDING'),
+                '$.data.status': In('SUBMITTED', 'PENDING', 'RUNNING'),
                 '$.data.customer_name': customer_check,
                 '$.data.tenant_name': Equal(tenant.name),
             },
+            label='deprecated; scheduled for removal on 2027-01-20',
         )
         cases.append(
             Case(
@@ -304,6 +474,16 @@ def build_executing_scans_cases(
     return cases
 
 
+def _executed(case: Case) -> Case:
+    """Execute the case right away and return it.
+
+    build_job_scan_cases calls the CLI while the cases are being built, so
+    the CLI must be configured and logged in before that happens.
+    """
+    case.execute()
+    return case
+
+
 def run_main_flow(
     *,
     username: str,
@@ -317,11 +497,11 @@ def run_main_flow(
     _customer_check = Equal(customer)
 
     cases: list[Case] = [
-        build_authentication_case(
+        _executed(build_authentication_case(
             username=username,
             password=password,
             api_link=api_link,
-        ),
+        )),
         build_entities_describe_case(
             settings=settings,
             customer=customer,
@@ -333,9 +513,14 @@ def run_main_flow(
             customer_check=_customer_check,
             tenants=tenants,
         ),
+        *build_job_scan_cases(
+            customer=customer,
+            customer_check=_customer_check,
+            tenants=tenants,
+        ),
     ]
 
-    for case in cases:
+    for case in cases[1:]:
         case.execute()
 
     if filename:

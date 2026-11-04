@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, Iterable, cast, NamedTuple
 
 from helpers.constants import (
     Cloud,
-    DEPRECATED_RULE_SUFFIX,
     JobState,
     JobType,
     RabbitCommand,
@@ -24,6 +23,7 @@ from helpers.constants import (
 )
 from helpers.log_helper import get_logger
 from helpers.reports import service_from_resource_type
+from helpers.rules import is_deprecated_rule_description
 from helpers.time_helper import utc_datetime, utc_iso
 from services.modular_helpers import get_tenant_regions, tenant_cloud
 from services.platform_service import Platform, PlatformService
@@ -369,10 +369,11 @@ class ReportDeliveryService:
         return excluded
 
     def _iter_deprecated_rules_dict(self, meta: dict, metadata: Metadata) -> list[dict]:
-        """Deprecated rules from meta keys ending with DEPRECATED_RULE_SUFFIX."""
+        """Return rules whose descriptions carry the deprecation marker."""
         out: list[dict] = []
-        for policy in meta:
-            if not policy.endswith(DEPRECATED_RULE_SUFFIX):
+        for policy, policy_meta in meta.items():
+            description = policy_meta.get("description")
+            if not is_deprecated_rule_description(description):
                 continue
             rule_meta = metadata.rule(policy)
             deprecation = rule_meta.deprecation
