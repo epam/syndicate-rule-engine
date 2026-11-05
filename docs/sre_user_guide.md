@@ -1387,6 +1387,7 @@ Permission model is aligned with the API available for managing the system. This
 | GET /reports/compliance/tenants/{tenant_name} | report:get_tenant_compliance | Allows to get a compliance report by tenant |
 | GET /reports/questionnaire/jobs/{job_id} | report:get_job_questionnaire | Allows to get a standard questionnaire (xlsx) by job |
 | GET /reports/questionnaire/tenants/{tenant_name} | report:get_tenant_questionnaire | Allows to get a standard questionnaire (xlsx) by tenant |
+| GET /reports/questionnaire/standards | report:list_questionnaire_standards | Lists questionnaire standards and versions available in customer metadata, grouped by cloud/platform domain |
 | GET /reports/dashboard/jobs/{job_id} | report:get_dashboard | Generates an Excel dashboard for a scan job |
 | GET /reports/dashboard/tenants/{tenant_name} | report:get_dashboard | Generates an Excel dashboard for the latest successful tenant scan |
 | GET /reports/errors/jobs/{job_id} | report:get_job_errors | Allows to get errors occurred during a job |
@@ -1466,6 +1467,6 @@ The set of provisioned services and additional features depends on the selected 
 | 1.0         | June 2024     | Initial version created                                 |
 | 1.1         | July 2024     | Minor clarifications introduced across several sections |
 | 1.2         | November 2025 | Minor changes                                           |
-| 1.3         | October 2026  | Actualized for version 5.22.0                           |
+| 1.3         | October 2026  | Actualized for version 5.23.0                           |
 
 [Go to Table of Contents](#table-of-contents)

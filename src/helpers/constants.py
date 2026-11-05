@@ -142,6 +142,7 @@ class Endpoint(str, Enum):
     REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME = (
         '/reports/questionnaire/tenants/{tenant_name}'
     )
+    REPORTS_QUESTIONNAIRE_STANDARDS = '/reports/questionnaire/standards'
     INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = (
         '/integrations/defect-dojo/{id}/activation'
     )
@@ -892,6 +893,11 @@ class Permission(str, Enum):
     )
     REPORT_QUESTIONNAIRE_DESCRIBE_TENANT = (
         'report:get_tenant_questionnaire',
+        False,
+        True,
+    )
+    REPORT_QUESTIONNAIRE_LIST_STANDARDS = (
+        'report:list_questionnaire_standards',
         False,
         True,
     )

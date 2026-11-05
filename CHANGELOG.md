@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.23.0] - Unreleased
 
+### Added
+- Added `GET /reports/questionnaire/standards` to list questionnaire standards
+  and versions grouped by cloud/platform domain
+
+### Fixed
+- Improved the questionnaire report error for standards unavailable to the
+  selected job or tenant; the message now points to the standards listing command
+- Fixed tenant describe responses to return cloud-native region names
+
 ### Changed
 - Show per-license results for `metadata_update` operation status, including each license key, update state, and start time
 
-## [5.22.0] - 2026-11-02
+## [5.22.0] - 2026-11-04
 
 ### Added
 - Added support for extended domain coverage metadata in `tech_cov` and `full_cov`, including control titles and section hierarchy in questionnaire reports
