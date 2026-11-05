@@ -174,7 +174,9 @@ def aws(
     resolve_local_credentials: bool,
     customer_id: str | None,
 ):
-    """Submit a job to scan an AWS tenant"""
+    """
+    Submit a job to scan an AWS tenant
+    """
     tenant = get_tenant(ctx, tenant_name, customer_id)
     if isinstance(tenant, SREResponse):
         return tenant
@@ -237,7 +239,9 @@ def azure(
     resolve_local_credentials: bool,
     customer_id: str | None,
 ):
-    """Submit a job to scan an Azure tenant"""
+    """
+    Submit a job to scan an Azure tenant
+    """
     tenant = get_tenant(ctx, tenant_name, customer_id)
     if isinstance(tenant, SREResponse):
         return tenant
@@ -296,7 +300,9 @@ def gcp(
     resolve_local_credentials: bool,
     customer_id: str | None,
 ):
-    """Submit a job to scan a Google Cloud tenant"""
+    """
+    Submit a job to scan a Google Cloud tenant
+    """
     tenant = get_tenant(ctx, tenant_name, customer_id)
     if isinstance(tenant, SREResponse):
         return tenant
@@ -358,7 +364,9 @@ def k8s(
     dojo_engagement: str | None,
     dojo_test: str | None,
 ):
-    """Submit a job to scan a Kubernetes cluster"""
+    """
+    Submit a job to scan a Kubernetes cluster
+    """
     return ctx['api_client'].k8s_job_post(
         platform_id=platform_id,
         target_rulesets=ruleset,

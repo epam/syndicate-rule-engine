@@ -86,7 +86,7 @@ def describe(ctx: ContextObj, job_id: str, tenant_name: str, customer_id: str,
 @cli_response(attributes_order=attributes_order)
 def resume(ctx: ContextObj, job_id: str, customer_id: str | None):
     """
-    Resubmits a standard scan job that has partial progress stored in S3/DynamoDB.
+    Resubmits a standard scan job that has partial progress stored in S3/DynamoDB
     """
     return ctx['api_client'].job_resume(job_id, customer_id=customer_id)
 

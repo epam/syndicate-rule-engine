@@ -41,7 +41,7 @@ def describe(ctx: ContextObj, customer_id):
 @cli_response()
 def add(ctx: ContextObj, jwt: str, algorithm: str, customer_id):
     """
-    Adds MCP JWT auth configuration. Only one configuration is allowed.
+    Adds MCP JWT auth configuration. Only one configuration is allowed
     """
     return ctx['api_client'].mcp_auth_setting_post(
         jwt=jwt,

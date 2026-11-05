@@ -75,7 +75,7 @@ def add(
     customer_id: str | None,
 ):
     """
-    Creates an SQS event source configuration.
+    Creates an SQS event source configuration
     """
     data = {
         "queue_url": queue_url,
@@ -110,7 +110,7 @@ def describe(
     customer_id: str | None,
 ):
     """
-    Lists SQS event sources or describes one by event_source_id.
+    Lists SQS event sources or describes one by event_source_id
     """
     if event_source_id:
         return ctx["api_client"].event_sources_get(
@@ -167,7 +167,7 @@ def update(
     customer_id: str | None,
 ):
     """
-    Updates an SQS event source configuration.
+    Updates an SQS event source configuration
     """
     data: dict = {}
     if queue_url is not None:

@@ -2,7 +2,7 @@ databaseName: syndicate_rule_engine
 mongoUri:
 innerCacheTTLSeconds: '300'
 workers: 2
-memoryLimit: 768Mi
+memoryLimit: 2Gi # temporary limit
 memoryRequest: 128Mi
 
 service:
