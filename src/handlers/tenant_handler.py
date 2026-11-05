@@ -77,7 +77,12 @@ class TenantHandler(AbstractHandler):
         )
 
     def get_dto(self, tenant: Tenant) -> dict:
-        dct = self._ts.get_dto(tenant)
+        dct: dict = self._ts.get_dto(tenant)
+        dct['regions'] = [
+            region.native_name
+            for region in tenant.regions
+            if region.maestro_name is not None
+        ]
         dct.pop('contacts', None)
         dct.pop('parent_map', None)
         dct.pop('read_only', None)
