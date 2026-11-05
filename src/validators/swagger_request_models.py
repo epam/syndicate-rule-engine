@@ -1689,6 +1689,20 @@ class TenantQuestionnaireReportGetModel(BaseModel):
     )
 
 
+class QuestionnaireStandardsGetModel(BaseModel):
+    domains: set[Literal['AWS', 'AZURE', 'GOOGLE', 'KUBERNETES']] = Field(
+        default_factory=set,
+        description='Filter standards by one or more cloud/platform domains',
+    )
+
+    @field_validator('domains', mode='before')
+    @classmethod
+    def split_domains(cls, value):
+        if isinstance(value, str):
+            return value.split(',')
+        return value
+
+
 class JobErrorReportGetModel(BaseModel):
     href: bool = False
     format: ReportFormat = ReportFormat.JSON

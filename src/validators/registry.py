@@ -57,6 +57,7 @@ from validators.swagger_request_models import (
     PolicyPatchModel,
     PolicyPostModel,
     ProjectGetReportModel,
+    QuestionnaireStandardsGetModel,
     RabbitMQDeleteModel,
     RabbitMQGetModel,
     RabbitMQPostModel,
@@ -144,6 +145,7 @@ from validators.swagger_response_models import (
     MultipleServiceOperationStatusesModel,
     MultipleTenantsModel,
     MultipleUsersModel,
+    QuestionnaireStandardsReportModel,
     RawReportModel,
     RulesReportModel,
     SignInModel,
@@ -1175,6 +1177,15 @@ data: tuple[EndpointInfo, ...] = (
         responses=[(HTTPStatus.OK, SingleEntityReportModel, None)],
         permission=Permission.REPORT_QUESTIONNAIRE_DESCRIBE_TENANT,
         description='Allows to get a standard questionnaire xlsx by a tenant',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_QUESTIONNAIRE_STANDARDS,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=QuestionnaireStandardsGetModel,
+        responses=[(HTTPStatus.OK, QuestionnaireStandardsReportModel, None)],
+        permission=Permission.REPORT_QUESTIONNAIRE_LIST_STANDARDS,
+        description='Allows to list standards available for questionnaire reports',
     ),
     # errors report
     EndpointInfo(

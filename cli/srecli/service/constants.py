@@ -133,6 +133,7 @@ class Endpoint(str, Enum):
     REPORTS_COMPLIANCE_TENANTS_TENANT_NAME = '/reports/compliance/tenants/{tenant_name}'
     REPORTS_QUESTIONNAIRE_JOBS_JOB_ID = '/reports/questionnaire/jobs/{job_id}'
     REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME = '/reports/questionnaire/tenants/{tenant_name}'
+    REPORTS_QUESTIONNAIRE_STANDARDS = '/reports/questionnaire/standards'
     INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = '/integrations/defect-dojo/{id}/activation'
     REPORTS_DETAILS_TENANTS_TENANT_NAME_JOBS = '/reports/details/tenants/{tenant_name}/jobs'
     REPORTS_DIGESTS_TENANTS_TENANT_NAME_JOBS = '/reports/digests/tenants/{tenant_name}/jobs'
@@ -351,4 +352,3 @@ REVERT_TO_JSON_MESSAGE = 'The command`s response is pretty huge and the ' \
                          'result table structure can be broken.\nDo you want ' \
                          'to show the response in the JSON format?'
 COLUMN_OVERFLOW = 'Column has overflown, within the table representation.'
-
