@@ -5,12 +5,13 @@ from modular_sdk.commons.constants import (
     ENV_KUBECONFIG,
     ParentType,
 )
-from modular_sdk.models.tenant import Tenant
+from modular_sdk.models.application import Application
 from modular_sdk.models.parent import Parent
+from modular_sdk.models.tenant import Tenant
 from modular_sdk.services.impl.maestro_credentials_service import Credentials
 
 from executor.services import BSP
-from helpers.constants import BatchJobEnv, Cloud, TS_EXCLUDED_RULES_KEY
+from helpers.constants import TS_EXCLUDED_RULES_KEY, BatchJobEnv, Cloud
 from helpers.log_helper import get_logger
 from models.job import Job
 from services import SP
@@ -84,17 +85,7 @@ def _get_tenant_credentials(tenant: Tenant) -> Credentials | None:
     """
 
     mcs = SP.modular_client.maestro_credentials_service()
-    application_service = SP.modular_client.application_service()
-
-    application = None
-
-    _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
-    parent = _get_parent(tenant)
-
-    if parent:
-        application = application_service.get_application_by_id(
-            parent.application_id,
-        )
+    application = get_tenant_credentials_application(tenant)
 
     if application:
         return mcs.get_by_application(application, tenant)
@@ -106,6 +97,18 @@ def _get_tenant_credentials(tenant: Tenant) -> Credentials | None:
         return mcs.get_by_tenant(tenant=tenant)
 
     return None
+
+
+def get_tenant_credentials_application(tenant: Tenant) -> Application | None:
+    """Return the enabled CUSTODIAN_ACCESS application for a tenant."""
+    application_service = SP.modular_client.application_service()
+
+    _LOG.info('Trying to get creds from `CUSTODIAN_ACCESS` parent')
+    parent = _get_parent(tenant)
+    if not parent:
+        return None
+
+    return application_service.get_application_by_id(parent.application_id)
 
 
 def get_tenant_credentials(tenant: Tenant) -> dict | None:

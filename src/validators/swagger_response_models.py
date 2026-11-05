@@ -714,10 +714,15 @@ class SingleJobReportModel(BaseModel):
 
 class MultipleJobReportModel(BaseModel):
     items: list[BaseReportJob]
+    next_token: str | None = None
 
 
 class SingleEntityReportModel(BaseModel):
     data: BaseReportEntity
+
+
+class QuestionnaireStandardsReportModel(BaseModel):
+    data: dict[str, list[str]]
 
 
 class ErrorsReportModel(BaseModel):
@@ -746,6 +751,11 @@ class EntityResourcesReportModel(BaseModel):
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None
+
+
+class TenantJobsResourcesReportModel(BaseModel):
+    items: list[ResourcesReportItem] | list[BaseReportJob]
+    next_token: str | None = None
 
 
 class TopViolationsReportJobsModel(BaseModel):

@@ -3,7 +3,6 @@ from collections import ChainMap
 from datetime import datetime
 from functools import cmp_to_key
 from http import HTTPStatus
-from itertools import chain
 from typing import Any, Iterator, Optional, TypedDict
 
 from modular_sdk.models.tenant import Tenant
@@ -12,7 +11,7 @@ from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Worksheet
 
 from handlers import AbstractHandler, Mapping
-from helpers import flip_dict
+from helpers import NextToken, flip_dict
 from helpers.constants import (
     JOB_ID_ATTR,
     TYPE_ATTR,
@@ -23,7 +22,7 @@ from helpers.constants import (
     ReportFormat,
     Severity,
 )
-from helpers.lambda_response import build_response
+from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.reports import severity_cmp
 from helpers.time_helper import utc_iso
@@ -671,19 +670,20 @@ class ResourceReportHandler(AbstractHandler):
             tenant_item, event.customer
         )
 
-        jobs = self._job_service.get_by_tenant_name(
+        cursor = self._job_service.get_by_tenant_name(
             tenant_name=tenant_name,
             job_types=event.job_types,
             status=JobState.SUCCEEDED,
             start=event.start_iso,
             end=event.end_iso,
+            filter_condition=Job.platform_id.does_not_exist(),
+            limit=event.limit,
+            last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
         metadata = self._ls.get_customer_metadata(event.customer_id)
 
-        job_response = {}
-        for job in jobs:
-            if job.is_platform_job:
-                continue
+        items = []
+        for job in cursor:
             collection = self._report_service.job_collection(
                 tenant=tenant_item,
                 job=job,
@@ -717,11 +717,19 @@ class ResourceReportHandler(AbstractHandler):
             if not response:
                 _LOG.debug(f'No resources found for job {job.id}. Skipping')
                 continue
-            job_response[job] = response
-        return build_response(
-            content=chain.from_iterable(
-                self.dto(j, r) for j, r in job_response.items()
-            )
+            if event.href:
+                url = self._report_service.one_time_url_json(
+                    response, f'{job.id}-resources.json'
+                )
+                items.append(
+                    ReportResponse(job, url, fmt=ReportFormat.JSON).dict()
+                )
+            else:
+                items.extend(self.dto(job, response))
+        return (
+            ResponseFactory()
+            .items(it=items, next_token=NextToken(cursor.last_evaluated_key))
+            .build()
         )
 
     @validate_kwargs

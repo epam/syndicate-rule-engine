@@ -111,7 +111,7 @@ def update(
     customer_id: str,
 ):
     """
-    Update K8S platform event-driven settings.
+    Update K8S platform event-driven settings
     """
     return ctx['api_client'].platform_k8s_update(
         platform_id=platform_id,

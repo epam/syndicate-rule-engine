@@ -1,5 +1,5 @@
-memoryLimit: 512Mi
-memoryRequest: 128Mi
+memoryLimit: 2Gi
+memoryRequest: 512Mi
 
 service:
   type: ClusterIP
