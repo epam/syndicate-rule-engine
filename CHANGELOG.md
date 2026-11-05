@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   selected job or tenant; the message now points to the standards listing command
 - Fixed tenant describe responses to return cloud-native region names
 
+### Changed
+- Show per-license results for `metadata_update` operation status, including each license key, update state, and start time
+
 ## [5.22.0] - 2026-11-04
 
 ### Added

@@ -61,21 +61,31 @@ class ServiceOperationService:
         return next(jobs, None)
 
     @staticmethod
-    def to_dto(job: Job) -> dict:
+    def to_dtos(job: Job) -> list[dict]:
         """
-        Convert a Job object to a DTO dictionary.
-        
+        Convert a Job object to one or more DTO dictionaries.
+
         :param job: Job object to convert
-        :return: Dictionary with started_at and state
+        :return: Per-license statuses when available, otherwise job status
         """
         started_at = job.started_at
         if isinstance(started_at, datetime | date):
             started_at = utc_iso(started_at)
-        return {
-            'started_at': started_at,
-            'state': job.state,
-        }
-    
+
+        meta = job.meta.as_dict()
+        metadata_update_results = meta.get('metadata_update_results', [])
+        if metadata_update_results:
+            return [
+                {
+                    'started_at': license_status.get('started_at') or started_at,
+                    'license_key': license_status['license_key'],
+                    'state': license_status['state'],
+                }
+                for license_status in metadata_update_results
+            ]
+
+        return [{'started_at': started_at, 'state': job.state}]
+
     @staticmethod
     def _build_range_key_condition(
         start: datetime | date | None,

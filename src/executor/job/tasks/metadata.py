@@ -1,6 +1,7 @@
 """Metadata update Celery task."""
 
 import operator
+from datetime import datetime, timezone
 from itertools import chain
 
 from modular_sdk.commons.constants import ApplicationType
@@ -49,11 +50,12 @@ def update_metadata():
         _LOG.warning("No licenses found - skipping metadata update")
         return
 
-    successful_updates = 0
-    failed_updates = 0
+    results = []
 
     for license_obj in licenses:
         license_key = license_obj.license_key
+        state = 'SUCCESS'
+        started_at = datetime.now(timezone.utc).isoformat()
         try:
             _LOG.info(f"Updating metadata for license: {license_key}")
             metadata = metadata_provider.refresh(license_obj)
@@ -61,22 +63,29 @@ def update_metadata():
                 _LOG.warning(
                     f"Metadata update returned empty metadata for license: {license_key}"
                 )
-                failed_updates += 1
+                state = 'FAIL'
             else:
-                _LOG.info(f"Successfully updated metadata for license: {license_key}")
-                successful_updates += 1
-        except Exception as e:
+                _LOG.info(
+                    f"Successfully updated metadata for license: {license_key}"
+                )
+        except Exception as e:  # noqa: BLE001
             _LOG.error(
                 f"Failed to update metadata for license {license_key}: {e}",
                 exc_info=True,
             )
-            failed_updates += 1
-
-    if failed_updates > 0:
-        reason = (
-            f"Failed to update metadata for {failed_updates}/{total_licenses} "
-            "license(s)"
+            state = 'FAIL'
+        results.append(
+            {
+                'started_at':started_at,
+                'license_key': license_key,
+                'state': state,
+            }
         )
+
+    successful_updates = sum(result['state'] == 'SUCCESS' for result in results)
+
+    if successful_updates == 0:
+        reason = "Failed to update metadata for license(s)"
         raise JobExecutionError(
             JobFailure.standard(
                 JobErrorCode.METADATA_UPDATE_FAILED,
@@ -88,3 +97,4 @@ def update_metadata():
         f"Metadata for {successful_updates}/{total_licenses} "
         "licenses updated successfully"
     )
+    return {'metadata_update_results': results}
