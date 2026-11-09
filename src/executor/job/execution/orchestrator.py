@@ -19,6 +19,7 @@ from executor.job.execution.job_execution_core import (
     finalize_job_scan,
 )
 from executor.job.integration.license_manager import post_lm_job
+from executor.job.job_failure import JobErrorCode, JobFailure
 from executor.job.policies.filter import (
     filter_policies,
     skip_duplicated_policies,
@@ -26,11 +27,15 @@ from executor.job.policies.filter import (
 from executor.job.rulesets.resolver import resolve_job_rulesets
 from executor.job.scan.progress import all_scan_regions
 from executor.job.types import JobExecutionError
-from executor.job.job_failure import JobFailure, JobErrorCode
-from helpers.constants import Cloud
+from helpers.constants import (
+    K8S_RBAC_RESOURCE_TYPES,
+    Cloud,
+    Env,
+)
 from helpers.log_helper import get_logger
 from services import SP
 from services.job_policy_filters.types import BundleFilters
+from services.k8s_rbac import FINDING_TYPES as K8S_RBAC_FINDING_TYPES
 from services.reports_bucket import (
     PlatformReportsBucketKeysBuilder,
     TenantReportsBucketKeysBuilder,
@@ -99,6 +104,77 @@ def _prepare_job_scan(
     return cloud, credentials, keys_builder, policies, regions
 
 
+def has_rbac_policies(policies: list[dict]) -> bool:
+    """
+    Tells whether the job scans Roles, ClusterRoles or their bindings, i.e.
+    whether its results can be used by the RBAC report
+    """
+    for policy in policies:
+        resource = str(policy.get('resource') or '')
+        if not resource.startswith('k8s.'):
+            resource = f'k8s.{resource}'
+        if resource in K8S_RBAC_FINDING_TYPES:
+            return True
+    return False
+
+
+def collect_k8s_rbac_snapshot(
+    ctx: JobExecutionContext, warnings: list[str]
+) -> bool:
+    """
+    Collects the RBAC inventory snapshot of this scan. Returns whether the
+    snapshot is complete. Collection problems are warnings and do not fail
+    the job.
+    """
+    platform = ctx.platform
+    if platform is None:
+        return False
+    if not Env.ENABLE_CUSTOM_CC_PLUGINS.is_set():
+        warnings.append(
+            'RBAC inventory refresh skipped: custom Custodian plugins are '
+            f'disabled ({Env.ENABLE_CUSTOM_CC_PLUGINS.value} is not set)'
+        )
+        return False
+    from executor.resource_collector.collector import (
+        CustodianResourceCollector,
+    )
+    from services.k8s_rbac_snapshot import RbacSnapshotWriter
+
+    writer = RbacSnapshotWriter(
+        s3_client=SP.s3,
+        bucket=SP.environment_service.default_reports_bucket_name(),
+        platform=platform,
+        job=ctx.job,
+    )
+    _LOG.info('Collecting RBAC snapshot for platform %s', platform.id)
+    try:
+        saved = CustodianResourceCollector.build().collect_platform(
+            tenant=ctx.tenant,
+            platform=platform,
+            resource_types=K8S_RBAC_RESOURCE_TYPES,
+            on_resources=writer.write,
+        )
+        manifest = writer.finish()
+        if manifest['complete'] is not True:
+            warnings.append(
+                'RBAC inventory snapshot is incomplete: roles or role '
+                'bindings could not be collected'
+            )
+            return False
+        if missing := writer.missing_optional_types:
+            warnings.append(
+                'RBAC inventory snapshot has no '
+                f'{", ".join(missing)}: pods and workloads of service '
+                'accounts may be missing in the RBAC report'
+            )
+        _LOG.info('RBAC snapshot collected: %d resources', saved)
+        return True
+    except Exception:
+        _LOG.exception('Failed to collect RBAC snapshot of %s', platform.id)
+        warnings.append('Could not collect RBAC inventory snapshot')
+        return False
+
+
 def run_standard_job(ctx: JobExecutionContext) -> None:
     """Standard and scheduled jobs: regional pull scan only."""
     cloud, credentials, keys_builder, policies, regions = _prepare_job_scan(
@@ -113,6 +189,11 @@ def run_standard_job(ctx: JobExecutionContext) -> None:
         cloud=cloud,
         regions=regions,
     )
+    rbac_snapshot_ready = (
+        ctx.platform is not None
+        and has_rbac_policies(policies)
+        and collect_k8s_rbac_snapshot(ctx, warnings)
+    )
 
     finalize_job_scan(
         ctx,
@@ -124,6 +205,7 @@ def run_standard_job(ctx: JobExecutionContext) -> None:
         warnings=warnings,
         failed=failed,
         completed_regions=completed_regions,
+        rbac_snapshot_ready=rbac_snapshot_ready,
     )
     _LOG.info('Job %r has ended (type=%r)', ctx.job.id, ctx.job.job_type)
 
@@ -201,7 +283,6 @@ def run_reactive_job(ctx: JobExecutionContext) -> None:
         scan_options=scan_options,
         regions=regions,
     )
-
     finalize_job_scan(
         ctx,
         keys_builder=keys_builder,

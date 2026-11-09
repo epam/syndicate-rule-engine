@@ -1,12 +1,19 @@
 import statistics
 from datetime import datetime
 from itertools import chain
-from typing import BinaryIO, Generator, Iterable
+from typing import Any, BinaryIO, Generator, Iterable
 
 import msgspec
 from modular_sdk.models.tenant import Tenant
 
-from helpers.constants import Cloud, PolicyErrorType, ReportFormat, Severity
+from helpers.constants import (
+    K8S_RBAC_REQUIRED_RESOURCE_TYPES,
+    K8S_RBAC_RESOURCE_TYPES,
+    Cloud,
+    PolicyErrorType,
+    ReportFormat,
+    Severity,
+)
 from helpers.log_helper import get_logger
 from helpers.reports import Standard
 from models.job import Job
@@ -177,6 +184,76 @@ class ReportService:
             client=self.s3_client,
         )
         return collection
+
+    def platform_latest_rbac_job_id(self, platform: Platform) -> str | None:
+        """
+        Id of the latest job of the platform with a complete RBAC snapshot
+        """
+        keys = PlatformReportsBucketKeysBuilder(platform)
+        value = self._get_rbac_data(keys.latest_rbac_manifest_key())
+        job_id = value.get('job_id') if isinstance(value, dict) else None
+        return job_id if isinstance(job_id, str) else None
+
+    def platform_rbac_snapshot_inventory(
+        self, platform: Platform, job: Job
+    ) -> dict[str, list[dict]] | None:
+        """
+        Loads the RBAC inventory snapshot of the given job. Returns None if
+        the snapshot or any of its required types is missing or malformed.
+        Optional types (pods, replica sets) that are not available are
+        omitted from the result
+        """
+        keys = PlatformReportsBucketKeysBuilder(platform)
+        manifest = self._get_rbac_data(
+            keys.rbac_inventory_snapshot_manifest_key(job)
+        )
+        if (
+            not isinstance(manifest, dict)
+            or manifest.get('platform_id') != platform.id
+            or manifest.get('job_id') != job.id
+            or not isinstance(manifest.get('resource_types'), dict)
+        ):
+            return None
+        statuses = manifest['resource_types']
+
+        inventory = {}
+        for resource_type in K8S_RBAC_RESOURCE_TYPES:
+            entry = statuses.get(resource_type)
+            data = None
+            if (
+                isinstance(entry, dict)
+                and entry.get('complete') is True
+                and isinstance(entry.get('key'), str)
+            ):
+                data = self._get_rbac_data(entry['key'])
+            if isinstance(data, list):
+                inventory[resource_type] = data
+            elif resource_type in K8S_RBAC_REQUIRED_RESOURCE_TYPES:
+                _LOG.warning(
+                    f'RBAC snapshot of job {job.id} has no valid '
+                    f'{resource_type}'
+                )
+                return None
+        return inventory
+
+    def _get_rbac_data(self, key: str) -> Any:
+        try:
+            return self._get_gz_data(key)
+        except Exception:  # noqa: BLE001
+            _LOG.exception(f'Could not load RBAC snapshot object {key}')
+            return None
+
+    def _get_gz_data(self, key: str) -> Any:
+        body = self.s3_client.gz_get_object(
+            bucket=self.environment_service.default_reports_bucket_name(),
+            key=key,
+        )
+        if body is None:
+            return None
+        try:
+            return msgspec.json.decode(body.getvalue())
+        finally:
+            body.close()
 
     def tenant_snapshot_collection(
         self, tenant: Tenant, date: datetime

@@ -170,6 +170,10 @@ class Endpoint(str, Enum):
     REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
         '/reports/resources/platforms/k8s/{platform_id}/state/latest'
     )
+    REPORTS_RBAC_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
+        '/reports/rbac/platforms/k8s/{platform_id}/latest'
+    )
+    REPORTS_RBAC_JOBS_JOB_ID = '/reports/rbac/jobs/{job_id}'
     REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
         '/reports/top/violations/jobs/{job_id}'
     )
@@ -914,6 +918,16 @@ class Permission(str, Enum):
         False,
         True,
     )
+    REPORT_RBAC_GET_K8S_PLATFORM_LATEST = (
+        'report:get_k8s_platform_latest_rbac',
+        False,
+        True,
+    )
+    REPORT_RBAC_GET_K8S_PLATFORM_JOB = (
+        'report:get_k8s_platform_job_rbac',
+        False,
+        True,
+    )
     REPORT_RESOURCES_GET_JOBS = 'report:get_job_resources', False, True
     REPORT_RESOURCES_GET_JOBS_BATCH = (
         'report:get_job_resources_batch',
@@ -1615,6 +1629,24 @@ EXCLUDE_RESOURCE_TYPES = {
     'k8s.custom-namespaced-resource',
     'k8s.secret',  # do not persist secret material in the inventory
 }
+
+# K8s resource types captured in each platform scan's RBAC inventory snapshot.
+# Roles and bindings are required to resolve subjects; pods and replica sets
+# only enrich ServiceAccount subjects with workloads.
+K8S_RBAC_REQUIRED_RESOURCE_TYPES = (
+    'k8s.role',
+    'k8s.cluster-role',
+    'k8s.role-binding',
+    'k8s.cluster-role-binding',
+)
+K8S_RBAC_OPTIONAL_RESOURCE_TYPES = (
+    'k8s.pod',
+    'k8s.replica-set',  # to resolve pod -> deployment
+)
+K8S_RBAC_RESOURCE_TYPES = (
+    *K8S_RBAC_REQUIRED_RESOURCE_TYPES,
+    *K8S_RBAC_OPTIONAL_RESOURCE_TYPES,
+)
 
 
 class ResourcesCollectorType(str, Enum):

@@ -2083,6 +2083,10 @@ class PlatformK8sResourcesReportGetModel(BaseModel):
     # They are not declared
 
 
+class PlatformK8sRbacReportGetModel(BaseModel):
+    pass
+
+
 class ResourceReportJobsGetModel(
     TimeRangedMixin, JobTypesMixin, ReportPaginationModel
 ):

@@ -1028,6 +1028,22 @@ class SREApiClient:
             query=sifted(kwargs),
         )
 
+    def platform_report_rbac_latest(self, platform_id, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_RBAC_PLATFORMS_K8S_PLATFORM_ID_LATEST,
+            path_params={'platform_id': platform_id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
+    def report_rbac_job(self, job_id, **kwargs):
+        return self.make_request(
+            path=Endpoint.REPORTS_RBAC_JOBS_JOB_ID,
+            path_params={'job_id': job_id},
+            method=HTTPMethod.GET,
+            query=sifted(kwargs),
+        )
+
     def report_resource_jobs(self, tenant_name, **kwargs):
         return self.make_request(
             path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_JOBS,

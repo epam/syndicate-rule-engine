@@ -14,6 +14,7 @@ from .high_level_reports_handler import HighLevelReportsHandler
 from .push_handler import SiemPushHandler
 from .questionnaire_handler import QuestionnaireHandler
 from .raw_report_handler import RawReportHandler
+from .rbac_report_handler import RbacReportHandler
 from .report_status_handler import ReportStatusHandlerHandler
 from .resource_report_handler import ResourceReportHandler
 from .rules_handler import JobsRulesHandler
@@ -30,6 +31,7 @@ __all__ = (
     "ResourceReportHandler",
     "JobsRulesHandler",
     "RawReportHandler",
+    "RbacReportHandler",
     "HighLevelReportsHandler",
     "ReportStatusHandlerHandler",
     "SiemPushHandler",

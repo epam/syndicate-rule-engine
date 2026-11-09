@@ -288,6 +288,25 @@ class PlatformReportsBucketKeysBuilder(ReportsBucketKeysBuilder):
             self.snapshots,
         )
 
+    def rbac_inventory_snapshot_prefix(self, job: 'Job') -> str:
+        return self.urljoin(self.job_result(job), 'rbac-inventory')
+
+    def rbac_inventory_snapshot_resource_key(
+        self, job: 'Job', resource_type: str
+    ) -> str:
+        return (
+            f'{self.rbac_inventory_snapshot_prefix(job).rstrip("/")}/'
+            f'{resource_type}'
+        )
+
+    def rbac_inventory_snapshot_manifest_key(self, job: 'Job') -> str:
+        return (
+            f'{self.rbac_inventory_snapshot_prefix(job).rstrip("/")}/manifest'
+        )
+
+    def latest_rbac_manifest_key(self) -> str:
+        return f'{self.latest_key().rstrip("/")}/rbac-manifest'
+
 
 class StatisticsBucketKeysBuilder:
     _statistics = 'job-statistics/'

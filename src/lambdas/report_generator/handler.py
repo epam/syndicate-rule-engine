@@ -11,6 +11,7 @@ from handlers.reports import (
     JobsRulesHandler,
     QuestionnaireHandler,
     RawReportHandler,
+    RbacReportHandler,
     ResourceReportHandler,
     SiemPushHandler,
 )
@@ -43,6 +44,7 @@ class ReportGenerator(ApiEventProcessorLambdaHandler):
         DashboardReportHandler,
         QuestionnaireHandler,
         ResourceReportHandler,
+        RbacReportHandler,
         JobsRulesHandler,
         DetailedReportHandler,
         DigestReportHandler,

@@ -53,6 +53,8 @@ from validators.swagger_request_models import (
     PlatformK8SPostModel,
     PlatformK8SPutModel,
     PlatformK8sQueryModel,
+    PlatformK8sRbacReportGetModel,
+    PlatformK8sResourcesGetModel,
     PlatformK8sResourcesReportGetModel,
     PolicyPatchModel,
     PolicyPostModel,
@@ -73,7 +75,6 @@ from validators.swagger_request_models import (
     ResourcesArnGetModel,
     ResourcesExceptionsGetModel,
     ResourcesExceptionsPostModel,
-    PlatformK8sResourcesGetModel,
     ResourcesGetModel,
     ResourcesReportGetModel,
     RolePatchModel,
@@ -120,6 +121,7 @@ from validators.swagger_response_models import (
     ErrorsReportModel,
     EventModel,
     JobResourcesReportModel,
+    K8sRbacReportModel,
     MessageModel,
     MultipleChronicleModel,
     MultipleCredentialsModel,
@@ -1301,6 +1303,29 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.REPORT_RESOURCES_GET_K8S_PLATFORM_LATEST,
         description='Allows to get latest resources report by K8S platform',
     ),
+    # rbac reports
+    EndpointInfo(
+        path=Endpoint.REPORTS_RBAC_PLATFORMS_K8S_PLATFORM_ID_LATEST,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sRbacReportGetModel,
+        responses=[(HTTPStatus.OK, K8sRbacReportModel, None)],
+        permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_LATEST,
+        description='Allows to get latest RBAC "who can do what" report '
+        'by K8S platform: subjects, their pods and permissions granted by '
+        'roles that violate rules, grouped by CIS control. Returns a URL to '
+        'an xlsx file',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_RBAC_JOBS_JOB_ID,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sRbacReportGetModel,
+        responses=[(HTTPStatus.OK, K8sRbacReportModel, None)],
+        permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_JOB,
+        description='Allows to get the K8s RBAC report for a specific scan '
+        'job. Returns a URL to an xlsx file',
+    ),
     EndpointInfo(
         path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,
         method=HTTPMethod.GET,
@@ -1719,10 +1744,16 @@ common_responses = (
     (HTTPStatus.UNAUTHORIZED, MessageModel, 'Invalid credentials'),
     (HTTPStatus.FORBIDDEN, MessageModel, 'Cannot access the resource'),
     (HTTPStatus.INTERNAL_SERVER_ERROR, MessageModel, 'Server error'),
-    (HTTPStatus.SERVICE_UNAVAILABLE, MessageModel,
-     'Service is temporarily unavailable'),
-    (HTTPStatus.GATEWAY_TIMEOUT, MessageModel,
-     'Gateway 30s timeout is reached')
+    (
+        HTTPStatus.SERVICE_UNAVAILABLE,
+        MessageModel,
+        'Service is temporarily unavailable',
+    ),
+    (
+        HTTPStatus.GATEWAY_TIMEOUT,
+        MessageModel,
+        'Gateway 30s timeout is reached',
+    ),
 )
 
 

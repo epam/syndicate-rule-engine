@@ -749,6 +749,15 @@ class EntityResourcesReportModel(BaseModel):
     data: BaseReportEntity | None
 
 
+class K8sRbacReportHref(BaseReportEntity):
+    job_id: str
+    warnings: NotRequired[list[str]]
+
+
+class K8sRbacReportModel(BaseModel):
+    data: K8sRbacReportHref
+
+
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None
