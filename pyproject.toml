@@ -19,7 +19,7 @@ dependencies = [
     "gunicorn~=26.0.0",
     "hvac>=2.3,<3",
     "jwcrypto>=1.5.6,<2",
-    "modular-sdk @ git+https://github.com/epam/modular-sdk.git@develop",
+    "modular-sdk @ git+https://github.com/epam/modular-sdk.git@f6ec8c614ac78ad908bb5d66420ca1b806c053be",
     "msgspec~=0.21.1",
     "openpyxl>=3,<4",
     "pydantic~=2.13.5",
