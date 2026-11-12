@@ -181,6 +181,8 @@ def _sheets(content) -> dict[str, list[dict]]:
     book = openpyxl.load_workbook(io.BytesIO(body))
     result = {}
     for sheet in book.worksheets:
+        if sheet.title in {'Introduction', 'RBAC'}:
+            continue
         header, *rows = sheet.iter_rows(min_row=5, values_only=True)
         result[sheet.title] = [dict(zip(header, row)) for row in rows]
     return result
@@ -204,7 +206,7 @@ def test_rbac_report(
     assert content['platform_id'] == k8s_platform.id
     assert content['job_id'] == rbac_job.id
     assert 'warnings' not in content
-    filename = f'rbac-platform-{k8s_platform.id}-job-{rbac_job.id}.xlsx'
+    filename = f'rbac-platform-{k8s_platform.id}-latest.xlsx'
     assert filename in unquote(content['url'])
     [(sheet, [row])] = _sheets(content).items()
     assert sheet == 'ecc-k8s-001'
@@ -213,6 +215,25 @@ def test_rbac_report(
     assert row['Effective namespace'] == 'cluster-wide'
     assert row['Pod names'] == 'app-pod'
     assert row['Binding name'] == 'crb'
+
+
+def test_rbac_job_report_filename(
+    sre_client,
+    system_user_token,
+    k8s_platform,
+    rbac_job,
+    rbac_collection,
+    rbac_snapshot,
+):
+    resp = sre_client.request(
+        _url(k8s_platform, rbac_job.id),
+        auth=system_user_token,
+        data={'customer_id': k8s_platform.customer},
+    )
+    assert resp.status_int == 200, resp.json
+    content = resp.json['data']
+    filename = f'rbac-platform-{k8s_platform.id}-job-{rbac_job.id}.xlsx'
+    assert filename in unquote(content['url'])
 
 
 def test_rbac_report_ignores_json_format(

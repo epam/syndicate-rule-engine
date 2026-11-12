@@ -233,6 +233,17 @@ class TestGraph:
         assert not rows[0].bound
         assert rows[0].subject_name == ''
         assert rows[0].verbs == ('get', 'list')
+        assert rows[0].effective_namespace == CLUSTER_WIDE
+
+    def test_unbound_role_uses_role_namespace(self, graph):
+        rows = build_role_rows(
+            graph,
+            RoleRef('Role', 'unbound', 'team'),
+            role('unbound', 'team', [SECRETS_RULE]),
+        )
+        assert len(rows) == 1
+        assert not rows[0].bound
+        assert rows[0].effective_namespace == 'team'
 
     def test_one_row_per_rule(self, inventory):
         inventory[CLUSTER_ROLE][2]['rules'] = [WILDCARD_RULE, SECRETS_RULE]
@@ -308,7 +319,11 @@ class TestTables:
             },
         )
         assert table.rules == ['ecc-k8s-083', 'ecc-k8s-084']
-        assert table.title.endswith('in RoleBindings')
+        assert table.title == (
+            'Cluster-admin is used only where required in RoleBindings/'
+            'Cluster-admin is used only where required in '
+            'ClusterRoleBindings'
+        )
         assert table.sheet_name == 'ecc-k8s-083, ecc-k8s-084'
         assert {row.binding_name for row in table.rows} == {
             'rb-team',
@@ -340,7 +355,10 @@ class TestTables:
         [table] = tables
         assert table.rules == ['ecc-k8s-001', 'ecc-k8s-002']
         assert table.severity == Severity.HIGH
-        assert table.title == 'Minimize wildcard use in Roles'
+        assert table.title == (
+            'Minimize wildcard use in ClusterRoles/'
+            'Minimize wildcard use in Roles'
+        )
         assert table.sheet_name == 'ecc-k8s-001, ecc-k8s-002'
         assert len(table.rows) == 2
 
@@ -391,10 +409,13 @@ class TestTables:
             },
         )
         assert table.rules == ['ecc-k8s-001']
-        assert table.title == 'Minimize wildcard use in Roles'
+        assert table.title == (
+            'Minimize wildcard use in ClusterRoles/'
+            'Minimize wildcard use in Roles'
+        )
         assert table.sheet_name == 'ecc-k8s-001'
 
-    def test_pair_title_is_role_rule_description(self, graph):
+    def test_pair_title_combines_both_rule_descriptions(self, graph):
         cluster_rule = 'ecc-k8s-001-cluster_roles_wildcard'
         role_rule = 'ecc-k8s-002-roles_wildcard'
         metadata = Metadata(
@@ -415,7 +436,9 @@ class TestTables:
                 role_rule: 'Avoid wildcards in Roles',
             },
         )
-        assert table.title == 'Avoid wildcards in Roles'
+        assert table.title == (
+            'ClusterRoles must not use wildcards/Avoid wildcards in Roles'
+        )
         assert table.sheet_name == 'ecc-k8s-001, ecc-k8s-002'
         assert table.rules == ['ecc-k8s-001', 'ecc-k8s-002']
 
@@ -461,10 +484,14 @@ class TestXlsx:
             RbacXlsxWriter(wb).write_tables(tables)
         buffer.seek(0)
         book = openpyxl.load_workbook(buffer)
-        assert book.sheetnames == ['ecc-k8s-001, ecc-k8s-002']
+        assert book.sheetnames == [
+            'Introduction',
+            'ecc-k8s-001, ecc-k8s-002',
+        ]
         assert (
             book['ecc-k8s-001, ecc-k8s-002']['B1'].value
-            == 'Minimize wildcard use in Roles'
+            == 'Minimize wildcard use in ClusterRoles/'
+            'Minimize wildcard use in Roles'
         )
 
     def test_write(self, graph):
@@ -481,7 +508,7 @@ class TestXlsx:
             RbacXlsxWriter(wb).write_tables(tables)
         buffer.seek(0)
         book = openpyxl.load_workbook(buffer)
-        assert book.sheetnames == ['ecc-k8s-003']
+        assert book.sheetnames == ['Introduction', 'ecc-k8s-003']
         sheet = book['ecc-k8s-003']
         assert sheet['B1'].value == 'A human-readable role description'
         assert sheet['A2'].value == 'Rule ID'
@@ -507,7 +534,51 @@ class TestXlsx:
         with Workbook(buffer) as wb:
             RbacXlsxWriter(wb).write_tables([])
         buffer.seek(0)
-        assert openpyxl.load_workbook(buffer).sheetnames == ['RBAC']
+        assert openpyxl.load_workbook(buffer).sheetnames == [
+            'Introduction',
+            'RBAC',
+        ]
+
+    def test_missing_descriptions_fall_back_to_rule_id(self, graph):
+        rules = (
+            'ecc-k8s-009-role_wildcard',
+            'ecc-k8s-003-role_secrets',
+        )
+        tables = build_tables(
+            graph,
+            [
+                RbacFinding(rules[0], ROLE, 'ns-reader', 'team'),
+                RbacFinding(rules[1], ROLE, 'ns-reader', 'team'),
+            ],
+            Metadata(
+                rules={rule: _rule_meta(Severity.HIGH, {}) for rule in rules}
+            ),
+            {},
+        )
+        assert {table.title for table in tables} == {
+            'ecc-k8s-003',
+            'ecc-k8s-009',
+        }
+        buffer = io.BytesIO()
+        with Workbook(buffer) as wb:
+            RbacXlsxWriter(wb).write_tables(tables)
+        buffer.seek(0)
+        assert openpyxl.load_workbook(buffer).sheetnames == [
+            'Introduction',
+            'ecc-k8s-003',
+            'ecc-k8s-009',
+        ]
+
+    def test_introduction_explains_report_columns(self):
+        buffer = io.BytesIO()
+        with Workbook(buffer) as wb:
+            RbacXlsxWriter(wb).write_tables([])
+        buffer.seek(0)
+        sheet = openpyxl.load_workbook(buffer)['Introduction']
+        assert sheet['A1'].value == 'Kubernetes RBAC report'
+        values = [sheet.cell(row, 2).value for row in range(3, 9)]
+        assert any('workload/controller' in value for value in values)
+        assert any('inventory snapshot' in value for value in values)
 
     def test_join_caps_cell_length(self):
         values = [f'pod-{i:06d}' for i in range(5000)]

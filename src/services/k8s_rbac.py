@@ -470,6 +470,12 @@ def build_role_rows(
         rule, resource_types = entry
         binding = grant.binding if grant else None
         workloads = graph.workloads(subject) if subject else _NO_WORKLOADS
+        if binding:
+            effective_namespace = binding.effective_namespace
+        elif ref.kind == KIND_ROLE:
+            effective_namespace = ref.namespace or ''
+        else:
+            effective_namespace = CLUSTER_WIDE
         return RbacRow(
             subject_name=subject.name if subject else '',
             subject_kind=subject.kind if subject else '',
@@ -483,7 +489,7 @@ def build_role_rows(
             resource_types=resource_types,
             resource_names=rule.resource_names,
             verbs=rule.verbs,
-            effective_namespace=binding.effective_namespace if binding else '',
+            effective_namespace=effective_namespace,
             binding_kind=binding.kind if binding else '',
             binding_name=binding.name if binding else '',
             binding_namespace=(binding.namespace or '') if binding else '',
@@ -607,44 +613,36 @@ def build_tables(
     graph: RbacGraph,
     findings: Iterable[RbacFinding],
     metadata: Metadata,
-    descriptions: Mapping[str, str] | None = None,
+    descriptions: Mapping[str, str],
 ) -> list[RbacTable]:
     """
-    Groups Role and ClusterRole findings into one table when their rule
-    names identify a pair after normalizing ClusterRole to Role. A pair
-    table is titled after its Role rule. Other rules get separate tables
-    titled after themselves. A sheet is named by the short ids of the
-    rules with findings in the table. Identical rows inside a table are
-    merged.
+    Groups findings by rule name after normalizing ClusterRole to Role.
+    The table title joins descriptions for rules with the same normalized
+    name using '/'. A sheet is named by the short IDs of the rules with
+    findings in the table. Identical rows inside a table are merged.
     """
-    descriptions = descriptions or {}
-    findings = [
-        finding
-        for finding in findings
-        if finding.resource_type in FINDING_TYPES
-    ]
-    rules_by_pair: dict[str, set[str]] = {}
+    rules_by_pair: dict[str, list[str]] = {}
     for rule in descriptions:
-        rules_by_pair.setdefault(_rule_pair_key(rule), set()).add(rule)
-
-    # rule -> the Role rule its table is titled after
-    pair_owner: dict[str, str] = {}
-    for rules in rules_by_pair.values():
-        role_rules = sorted(r for r in rules if not _is_cluster_role_rule(r))
-        if role_rules and len(role_rules) < len(rules):
-            for rule in rules:
-                pair_owner[rule] = role_rules[0]
+        rules_by_pair.setdefault(_rule_pair_key(rule), []).append(rule)
 
     tables: dict[str, RbacTable] = {}
     for finding in findings:
+        if finding.resource_type not in FINDING_TYPES:
+            continue
         rule_meta = metadata.rule(finding.rule)
-        owner = pair_owner.get(finding.rule, finding.rule)
-        key = f'rule:{owner}'
+        pair_key = _rule_pair_key(finding.rule)
+        key = f'pair:{pair_key}'
         table = tables.get(key)
         if table is None:
+            rule_descriptions = (
+                descriptions[rule]
+                for rule in rules_by_pair.get(pair_key, ())
+                if rule in descriptions
+            )
+            title = '/'.join(rule_descriptions) or _short_rule_id(finding.rule)
             table = tables[key] = RbacTable(
                 key=key,
-                title=descriptions.get(owner) or _short_rule_id(owner),
+                title=title,
             )
         short_rule_id = _short_rule_id(finding.rule)
         if short_rule_id not in table.rules:

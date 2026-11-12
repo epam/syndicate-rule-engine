@@ -128,7 +128,12 @@ class RbacReportHandler(AbstractHandler):
                 code=HTTPStatus.NOT_FOUND,
                 content='RBAC scan job not found',
             )
-        return self._build_report(event=event, platform=platform, job=job)
+        return self._build_report(
+            event=event,
+            platform=platform,
+            job=job,
+            filename=f'rbac-platform-{platform.id}-latest.xlsx',
+        )
 
     @validate_kwargs
     def k8s_job_get(
@@ -157,7 +162,12 @@ class RbacReportHandler(AbstractHandler):
                 code=HTTPStatus.NOT_FOUND,
                 content='RBAC report is not available for event-driven scans',
             )
-        return self._build_report(event=event, platform=platform, job=job)
+        return self._build_report(
+            event=event,
+            platform=platform,
+            job=job,
+            filename=f'rbac-platform-{platform.id}-job-{job.id}.xlsx',
+        )
 
     def _build_report(
         self,
@@ -165,6 +175,7 @@ class RbacReportHandler(AbstractHandler):
         event: PlatformK8sRbacReportGetModel,
         platform: Platform,
         job: Job,
+        filename: str,
     ):
         inventory = self._report_service.platform_rbac_snapshot_inventory(
             platform, job
@@ -212,7 +223,7 @@ class RbacReportHandler(AbstractHandler):
             buffer.seek(0)
             url = self._report_service.one_time_url(
                 cast(BinaryIO, buffer),
-                f'rbac-platform-{platform.id}-job-{job.id}.xlsx',
+                filename,
             )
         content = ReportResponse(platform, url, fmt=ReportFormat.XLSX).dict()
         content['job_id'] = job.id

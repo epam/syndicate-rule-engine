@@ -108,6 +108,8 @@ class RbacXlsxWriter:
         self._used: set[str] = set()
         self._bold = wb.add_format({'bold': True})
         self._title = wb.add_format({'bold': True, 'font_size': 13})
+        self._intro_label = wb.add_format({'bold': True, 'valign': 'top'})
+        self._intro_text = wb.add_format({'text_wrap': True, 'valign': 'top'})
         self._header = wb.add_format(
             {'bold': True, 'bg_color': '#d9e1f2', 'border': 1}
         )
@@ -122,12 +124,77 @@ class RbacXlsxWriter:
         self._gray = wb.add_format({'bg_color': '#bfbfbf'})
 
     def write_tables(self, tables: list[RbacTable]) -> None:
+        self.write_introduction()
         if not tables:
             wsh = self._wb.add_worksheet(unique_sheet_name('RBAC', self._used))
             wsh.write(0, 0, 'No RBAC findings', self._bold)
             return
-        for table in tables:
+        for table in sorted(
+            tables, key=lambda item: item.sheet_name.casefold()
+        ):
             self.write_table(table)
+
+    def write_introduction(self) -> None:
+        wsh = self._wb.add_worksheet(
+            unique_sheet_name('Introduction', self._used)
+        )
+        wsh.set_column(0, 0, 24)
+        wsh.set_column(1, 1, 100)
+        wsh.write(0, 0, 'Kubernetes RBAC report', self._title)
+        sections = (
+            (
+                'Purpose',
+                (
+                    'Shows subjects and permissions associated with Roles '
+                    'and ClusterRoles that triggered RBAC findings.'
+                ),
+            ),
+            (
+                'Worksheets',
+                (
+                    'Each subsequent worksheet contains findings for the '
+                    'rule IDs shown in its title and rows for the affected '
+                    'subjects and role permissions. Finding worksheets are '
+                    'sorted by sheet name.'
+                ),
+            ),
+            (
+                'Effective namespace',
+                (
+                    'For bound findings, this is the binding scope: a '
+                    'RoleBinding namespace or cluster-wide for a '
+                    'ClusterRoleBinding. For unbound roles, it is the '
+                    'Role namespace or cluster-wide for a ClusterRole.'
+                ),
+            ),
+            (
+                'Pods',
+                (
+                    'The visible Pods column lists workload/controller '
+                    'names. Pod names are in the collapsed Pod names '
+                    'detail column.'
+                ),
+            ),
+            (
+                'Not bound',
+                (
+                    '(not bound) means no matching binding was found in '
+                    'the inventory snapshot for this scan.'
+                ),
+            ),
+            (
+                'Details',
+                (
+                    'Additional context columns are collapsed by default. '
+                    'Use the + outline control above the column headers to '
+                    'expand them.'
+                ),
+            ),
+        )
+        for row, (label, text) in enumerate(sections, start=2):
+            wsh.write(row, 0, label, self._intro_label)
+            wsh.write(row, 1, text, self._intro_text)
+            wsh.set_row(row, 36)
 
     def write_table(self, table: RbacTable) -> Worksheet:
         wsh = self._wb.add_worksheet(
