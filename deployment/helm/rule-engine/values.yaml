@@ -105,6 +105,12 @@ dojoPayloadSizeLimitBytes:
 metricsExpirationDays: 90
 recommendationsBucket:
 
+# comma-separated list of origins allowed by CORS (e.g. 'https://ui.example.com,https://other.example.com'). Empty = no CORS origin header
+corsAllowedOrigins: ''
+
+# value of the Strict-Transport-Security response header. Set to '' to disable
+hstsHeader: 'max-age=31536000; includeSubDomains'
+
 # minio presigned url configuration (any value is considered as true)
 minioPresignedUrl: ''
 minioPresignedUrlPublicIpv4: ''

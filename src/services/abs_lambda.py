@@ -129,6 +129,22 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
         if path and resource:
             return path[:-len(resource)].strip('/')
 
+    @staticmethod
+    def _get_header_value(
+        event: dict,
+        header_name: str,
+    ) -> str | None:
+        headers = event.get('headers') or {}
+        if not isinstance(headers, dict):
+            return
+        for name, value in headers.items():
+            if (
+                isinstance(name, str)
+                and isinstance(value, str)
+                and name.lower() == header_name.lower()
+            ):
+                return value
+
     def __call__(self, event: dict, context: RequestContext
                  ) -> tuple[dict, RequestContext]:
         """
@@ -138,9 +154,12 @@ class ExpandEnvironmentEventProcessor(AbstractEventProcessor):
         tls = SP.tls
 
         tls.aws_request_id = context.aws_request_id
-        if host := deep_get(event, ('headers', 'Host')):
+        tls.origin = None
+        if host := self._get_header_value(event, 'Host'):
             _LOG.debug(f'Resolved host from header: {host}')
             tls.host = host
+        if origin := self._get_header_value(event, 'Origin'):
+            tls.origin = origin
 
         stage = self._resolve_stage(event)
         if stage:
