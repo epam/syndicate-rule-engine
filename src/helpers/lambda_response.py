@@ -114,6 +114,8 @@ class LambdaResponse:
             'Access-Control-Allow-Methods': '*',
             'Accept-Version': __version__,  # TODO API think about header name
         }
+        if hsts := (Env.HSTS_HEADER.get() or '').strip():
+            headers['Strict-Transport-Security'] = hsts
         headers.update(self._cors_origin_header())
         if trace_id := SP.tls.__dict__.get('aws_request_id'):
             headers['Lambda-Invocation-Trace-Id'] = trace_id

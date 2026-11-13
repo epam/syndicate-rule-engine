@@ -554,6 +554,13 @@ class Env(EnvEnum):
     )
     LOG_LEVEL = 'SRE_LOG_LEVEL', ('CAAS_LOG_LEVEL',), 'INFO'
     CORS_ALLOWED_ORIGINS = 'SRE_CORS_ALLOWED_ORIGINS', ()
+    # value of the Strict-Transport-Security response header. Set to an
+    # empty string '' to disable the header
+    HSTS_HEADER = (
+        'SRE_HSTS_HEADER',
+        (),
+        'max-age=31536000; includeSubDomains',
+    )
     EXECUTOR_LOGS_FILENAME = 'SRE_EXECUTOR_LOGS_FILENAME', ()
 
     # buckets

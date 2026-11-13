@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added `GET /reports/questionnaire/standards` to list questionnaire standards and versions grouped by cloud/platform domain
 - Added the ability to configure `SRE_CORS_ALLOWED_ORIGINS` via Helm chart values (`corsAllowedOrigins`)
+- Added the `Strict-Transport-Security` response header (default `max-age=31536000; includeSubDomains`). It can be changed or disabled (empty value `''`) via `SRE_HSTS_HEADER` / Helm `hstsHeader`
 
 ### Fixed
 - Improved the questionnaire report error for standards unavailable to the selected job or tenant; the message now points to the standards listing command

@@ -23,6 +23,7 @@ def test_ok_lambda_response():
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
             'Access-Control-Allow-Methods': '*',
             'Accept-Version': __version__,
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
             'Content-Type': 'text/html',
             'Lambda-Invocation-Trace-Id': 'mock'
         },
@@ -64,6 +65,7 @@ def test_json_lambda_response():
             'Accept-Version': __version__,
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
             'Access-Control-Allow-Methods': '*',
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
             'Content-Type': 'application/json',
             'Lambda-Invocation-Trace-Id': 'mock'
         },
@@ -88,6 +90,22 @@ def test_cors_origin_is_returned_only_for_allowed_origin(monkeypatch):
 
     assert 'Access-Control-Allow-Origin' not in headers
     assert 'Vary' not in headers
+
+
+def test_hsts_header(monkeypatch):
+    monkeypatch.delenv('SRE_HSTS_HEADER', raising=False)
+    headers = LambdaResponse().build()['headers']
+    assert headers['Strict-Transport-Security'] == (
+        'max-age=31536000; includeSubDomains'
+    )
+
+    monkeypatch.setenv('SRE_HSTS_HEADER', 'max-age=10368000')
+    headers = LambdaResponse().build()['headers']
+    assert headers['Strict-Transport-Security'] == 'max-age=10368000'
+
+    monkeypatch.setenv('SRE_HSTS_HEADER', '')
+    headers = LambdaResponse().build()['headers']
+    assert 'Strict-Transport-Security' not in headers
 
 
 class TestResponseFactory:
