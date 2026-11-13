@@ -14,7 +14,7 @@ from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Worksheet
 
 from helpers.constants import Severity
-from services.k8s_rbac import RbacRow, RbacTable
+from services.k8s_rbac import RbacRow, RbacSummaryRow, RbacTable
 
 EMPTY = '-'
 SEPARATOR = ', '
@@ -231,5 +231,44 @@ class RbacXlsxWriter:
 
         last_col = len(self._columns) - 1
         wsh.autofilter(header_row, 0, row_idx, last_col)
+        wsh.freeze_panes(header_row + 1, 1)
+        return wsh
+
+    def write_summary(self, rows: list[RbacSummaryRow]) -> Worksheet:
+        wsh = self._wb.add_worksheet(
+            unique_sheet_name('Single Pane of Glass', self._used)
+        )
+        wsh.write(0, 0, 'Kubernetes RBAC: Single Pane of Glass', self._title)
+        wsh.write(
+            1,
+            0,
+            (
+                'Each subject is shown once with its highest detected '
+                'access level.'
+            ),
+        )
+
+        headers = ('Subject', 'Type', 'Access', 'Scope', 'Roles')
+        widths = (34, 14, 14, 32, 48)
+        header_row = 3
+        for col, (header, width) in enumerate(zip(headers, widths)):
+            wsh.write(header_row, col, header, self._header)
+            wsh.set_column(col, col, width)
+
+        for row_idx, row in enumerate(rows, start=header_row + 1):
+            values = (
+                row.subject_name,
+                row.subject_kind,
+                row.access,
+                row.scope,
+                _join(row.roles),
+            )
+            for col, value in enumerate(values):
+                wsh.write_string(
+                    row_idx, col, (value or EMPTY)[:MAX_CELL_LENGTH]
+                )
+
+        last_row = header_row + len(rows)
+        wsh.autofilter(header_row, 0, last_row, len(headers) - 1)
         wsh.freeze_panes(header_row + 1, 1)
         return wsh

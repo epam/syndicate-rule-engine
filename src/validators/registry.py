@@ -1305,7 +1305,7 @@ data: tuple[EndpointInfo, ...] = (
     ),
     # rbac reports
     EndpointInfo(
-        path=Endpoint.REPORTS_RBAC_PLATFORMS_K8S_PLATFORM_ID_LATEST,
+        path=Endpoint.REPORTS_RBAC_DETAILED_LATEST,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=PlatformK8sRbacReportGetModel,
@@ -1317,7 +1317,7 @@ data: tuple[EndpointInfo, ...] = (
         'an xlsx file',
     ),
     EndpointInfo(
-        path=Endpoint.REPORTS_RBAC_JOBS_JOB_ID,
+        path=Endpoint.REPORTS_RBAC_DETAILED_JOB,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=PlatformK8sRbacReportGetModel,
@@ -1325,6 +1325,26 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_JOB,
         description='Allows to get the K8s RBAC report for a specific scan '
         'job. Returns a URL to an xlsx file',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_RBAC_COMPACT_LATEST,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sRbacReportGetModel,
+        responses=[(HTTPStatus.OK, K8sRbacReportModel, None)],
+        permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_LATEST,
+        description='Allows to get the latest Kubernetes RBAC single pane '
+        'of glass report by platform. Returns a URL to an xlsx file',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_RBAC_COMPACT_JOB,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sRbacReportGetModel,
+        responses=[(HTTPStatus.OK, K8sRbacReportModel, None)],
+        permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_JOB,
+        description='Allows to get the Kubernetes RBAC single pane of glass '
+        'report for a specific scan job. Returns a URL to an xlsx file',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,

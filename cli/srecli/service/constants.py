@@ -143,8 +143,14 @@ class Endpoint(str, Enum):
     REPORTS_RAW_TENANTS_TENANT_NAME_STATE_LATEST = '/reports/raw/tenants/{tenant_name}/state/latest'
     REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST = '/reports/resources/tenants/{tenant_name}/state/latest'
     REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = '/reports/resources/platforms/k8s/{platform_id}/state/latest'
-    REPORTS_RBAC_PLATFORMS_K8S_PLATFORM_ID_LATEST = '/reports/rbac/platforms/k8s/{platform_id}/latest'
-    REPORTS_RBAC_JOBS_JOB_ID = '/reports/rbac/jobs/{job_id}'
+    REPORTS_RBAC_DETAILED_LATEST = (
+        '/reports/rbac/platforms/k8s/{platform_id}/detailed/latest'
+    )
+    REPORTS_RBAC_DETAILED_JOB = '/reports/rbac/detailed/jobs/{job_id}'
+    REPORTS_RBAC_COMPACT_LATEST = (
+        '/reports/rbac/platforms/k8s/{platform_id}/compact/latest'
+    )
+    REPORTS_RBAC_COMPACT_JOB = '/reports/rbac/compact/jobs/{job_id}'
 
 
 LAMBDA_INVOCATION_TRACE_ID_HEADER = 'Lambda-Invocation-Trace-Id'

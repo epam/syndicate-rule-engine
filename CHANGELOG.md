@@ -11,9 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `GET /reports/questionnaire/standards` to list questionnaire standards
   and versions grouped by cloud/platform domain
 - Added Kubernetes RBAC ("who can do what") report endpoints that return an Excel report:
-  - `GET /reports/rbac/platforms/k8s/{platform_id}/latest` returns the latest complete report
+  - `GET /reports/rbac/platforms/k8s/{platform_id}/detailed/latest` returns the latest complete report
     for a platform
-  - `GET /reports/rbac/jobs/{job_id}` returns the report for a specific platform scan
+  - `GET /reports/rbac/detailed/jobs/{job_id}` returns the report for a specific platform scan
+- Added Kubernetes RBAC Single Pane of Glass report endpoints that return a
+  subject-level summary workbook:
+  - `GET /reports/rbac/platforms/k8s/{platform_id}/compact/latest` returns the latest complete report
+    for a platform
+  - `GET /reports/rbac/compact/jobs/{job_id}` returns the report for a specific platform scan
 - Added `k8s.cluster-role` aggregation annotations (`c7n:aggregated-into`, `c7n:aggregated-from`) to the
   custom Cloud Custodian plugins
 

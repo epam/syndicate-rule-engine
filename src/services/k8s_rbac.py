@@ -670,3 +670,136 @@ def build_tables(
         result.append(table)
     result.sort(key=lambda table: (table.title.lower(), table.key))
     return result
+
+
+@dataclass(frozen=True)
+class RbacSummaryRow:
+    subject_name: str
+    subject_kind: str
+    access: str
+    scope: str
+    roles: tuple[str, ...]
+
+
+@dataclass
+class _SubjectSummary:
+    subject: Subject
+    scopes: set[str] = field(default_factory=set)
+    roles: set[str] = field(default_factory=set)
+    access_rank: int = 0
+    has_secret_access: bool = False
+    can_create_pods: bool = False
+
+
+_READ_VERBS = frozenset(('get', 'list', 'watch'))
+_WRITE_VERBS = frozenset(
+    ('create', 'update', 'patch', 'delete', 'deletecollection')
+)
+_ADMIN_VERBS = frozenset(('impersonate', 'bind', 'escalate'))
+_RBAC_RESOURCES = frozenset(
+    ('roles', 'rolebindings', 'clusterroles', 'clusterrolebindings')
+)
+_ACCESS_LABELS = {
+    0: 'None',
+    1: '👁️',
+    2: '✏️',
+    3: '🔥',
+}
+
+
+def _summary_role_name(ref: RoleRef) -> str:
+    if ref.kind == KIND_ROLE:
+        return f'{ref.namespace or ""}/{ref.name}'
+    return ref.name
+
+
+def _rule_access_rank(rule: RoleRule) -> int:
+    verbs = set(rule.verbs)
+    resources = set(rule.resources)
+    resource_bases = {resource.split('/', 1)[0] for resource in resources}
+
+    if (
+        '*' in verbs
+        or '*' in resources
+        or verbs & _ADMIN_VERBS
+        or resources & {'pods/exec', 'nodes/proxy'}
+        or (verbs & _WRITE_VERBS and resource_bases & _RBAC_RESOURCES)
+    ):
+        return 3
+    if verbs & _WRITE_VERBS and resource_bases - _RBAC_RESOURCES:
+        return 2
+    if verbs and verbs <= _READ_VERBS:
+        return 1
+    return 0
+
+
+def build_summary_rows(graph: RbacGraph) -> list[RbacSummaryRow]:
+    """Aggregate all bound identities and their effective RBAC access."""
+    summaries: dict[tuple[str, str, str], _SubjectSummary] = {}
+
+    def summary_for(subject: Subject) -> _SubjectSummary:
+        key = (subject.kind, subject.name, subject.namespace or '')
+        return summaries.setdefault(key, _SubjectSummary(subject=subject))
+
+    for binding in graph.bindings.values():
+        for subject in binding.subjects:
+            summary = summary_for(subject)
+            summary.scopes.add(binding.effective_namespace)
+            summary.roles.add(_summary_role_name(binding.role_ref))
+            if (
+                binding.role_ref.kind == KIND_CLUSTER_ROLE
+                and binding.role_ref.name.casefold() == 'cluster-admin'
+            ):
+                summary.access_rank = 3
+
+    for ref in graph.iter_role_refs():
+        rules = role_rules(graph.role(ref))
+        if not rules:
+            continue
+        for grant in graph.iter_grants(ref):
+            for subject in grant.binding.subjects:
+                summary = summary_for(subject)
+                for rule in rules:
+                    summary.access_rank = max(
+                        summary.access_rank, _rule_access_rank(rule)
+                    )
+                    summary.has_secret_access |= (
+                        'secrets' in rule.resources and bool(rule.verbs)
+                    )
+                    summary.can_create_pods |= (
+                        'pods' in rule.resources and 'create' in rule.verbs
+                    )
+
+    rows = []
+    for summary in summaries.values():
+        if summary.has_secret_access and summary.can_create_pods:
+            summary.access_rank = 3
+        subject = summary.subject
+        subject_name = subject.name
+        if subject.kind == KIND_SERVICE_ACCOUNT and subject.namespace:
+            subject_name = f'{subject.namespace}/{subject.name}'
+        scopes = summary.scopes
+        scope = (
+            CLUSTER_WIDE
+            if CLUSTER_WIDE in scopes
+            else ', '.join(sorted(filter(None, scopes))) or '-'
+        )
+        subject_kind = (
+            'SA' if subject.kind == KIND_SERVICE_ACCOUNT else subject.kind
+        )
+        rows.append(
+            RbacSummaryRow(
+                subject_name=subject_name,
+                subject_kind=subject_kind,
+                access=_ACCESS_LABELS[summary.access_rank],
+                scope=scope,
+                roles=tuple(sorted(summary.roles)),
+            )
+        )
+    return sorted(
+        rows,
+        key=lambda row: (
+            row.subject_kind.casefold(),
+            row.subject_name.casefold(),
+        ),
+    )

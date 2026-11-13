@@ -9,15 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added `sre report questionnaire standards` to list questionnaire standards
   and versions grouped by cloud/platform domain
-- Added `sre report rbac latest` and `sre report rbac job` commands to generate
+- Added `sre report rbac detailed latest` and `sre report rbac detailed jobs` commands to generate detailed
   Kubernetes RBAC Excel reports
+- Added `sre report rbac compact latest` and `sre report rbac compact jobs` commands to generate compact 
+  single-pane-of-glass Kubernetes RBAC Excel reports
 
 ## [5.22.0] - 2026-11-04
 
 ### Added
 - Added `sre report dashboard jobs` to generate an Excel dashboard report for a scan job
-- Added `sre report rbac latest` to generate the Kubernetes RBAC ("who can do what") report of a K8S platform
-- Added `sre report rbac job` to generate the Kubernetes RBAC report for a scan job
 - Added pagination to tenant-level job reports (digests, details, findings, and resources) using `limit` and `next_token`
 - Added `--href` support to digest and resource reports to return presigned JSON download URLs per job
 

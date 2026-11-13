@@ -170,10 +170,14 @@ class Endpoint(str, Enum):
     REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
         '/reports/resources/platforms/k8s/{platform_id}/state/latest'
     )
-    REPORTS_RBAC_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
-        '/reports/rbac/platforms/k8s/{platform_id}/latest'
+    REPORTS_RBAC_DETAILED_LATEST = (
+        '/reports/rbac/platforms/k8s/{platform_id}/detailed/latest'
     )
-    REPORTS_RBAC_JOBS_JOB_ID = '/reports/rbac/jobs/{job_id}'
+    REPORTS_RBAC_DETAILED_JOB = '/reports/rbac/detailed/jobs/{job_id}'
+    REPORTS_RBAC_COMPACT_LATEST = (
+        '/reports/rbac/platforms/k8s/{platform_id}/compact/latest'
+    )
+    REPORTS_RBAC_COMPACT_JOB = '/reports/rbac/compact/jobs/{job_id}'
     REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
         '/reports/top/violations/jobs/{job_id}'
     )

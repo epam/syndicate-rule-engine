@@ -21,6 +21,7 @@ from services.k8s_rbac import (
     FINDING_TYPES,
     RbacFinding,
     RbacGraph,
+    build_summary_rows,
     build_tables,
 )
 from services.k8s_rbac_xlsx import RbacXlsxWriter
@@ -73,11 +74,17 @@ class RbacReportHandler(AbstractHandler):
     @property
     def mapping(self) -> Mapping:
         return {
-            Endpoint.REPORTS_RBAC_PLATFORMS_K8S_PLATFORM_ID_LATEST: {
-                HTTPMethod.GET: self.k8s_platform_get_latest
+            Endpoint.REPORTS_RBAC_DETAILED_LATEST: {
+                HTTPMethod.GET: self.get_detailed_latest
             },
-            Endpoint.REPORTS_RBAC_JOBS_JOB_ID: {
-                HTTPMethod.GET: self.k8s_job_get
+            Endpoint.REPORTS_RBAC_DETAILED_JOB: {
+                HTTPMethod.GET: self.get_detailed_job
+            },
+            Endpoint.REPORTS_RBAC_COMPACT_LATEST: {
+                HTTPMethod.GET: self.get_single_pane_latest
+            },
+            Endpoint.REPORTS_RBAC_COMPACT_JOB: {
+                HTTPMethod.GET: self.get_single_pane_job
             },
         }
 
@@ -106,7 +113,7 @@ class RbacReportHandler(AbstractHandler):
         return findings
 
     @validate_kwargs
-    def k8s_platform_get_latest(
+    def get_detailed_latest(
         self, event: PlatformK8sRbacReportGetModel, platform_id: str
     ):
         platform = self._platform_service.get_nullable(hash_key=platform_id)
@@ -132,11 +139,11 @@ class RbacReportHandler(AbstractHandler):
             event=event,
             platform=platform,
             job=job,
-            filename=f'rbac-platform-{platform.id}-latest.xlsx',
+            filename=f'rbac-detailed-platform-{platform.id}-latest.xlsx',
         )
 
     @validate_kwargs
-    def k8s_job_get(
+    def get_detailed_job(
         self,
         event: PlatformK8sRbacReportGetModel,
         job_id: str,
@@ -166,8 +173,98 @@ class RbacReportHandler(AbstractHandler):
             event=event,
             platform=platform,
             job=job,
-            filename=f'rbac-platform-{platform.id}-job-{job.id}.xlsx',
+            filename=(
+                f'rbac-detailed-platform-{platform.id}-job-{job.id}.xlsx'
+            ),
         )
+
+    @validate_kwargs
+    def get_single_pane_latest(
+        self, event: PlatformK8sRbacReportGetModel, platform_id: str
+    ):
+        platform = self._platform_service.get_nullable(hash_key=platform_id)
+        if not platform or (
+            event.customer and platform.customer != event.customer
+        ):
+            return build_response(
+                code=HTTPStatus.NOT_FOUND, content='Platform not found'
+            )
+        job_id = self._report_service.platform_latest_rbac_job_id(platform)
+        if not job_id:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content='No complete RBAC scan snapshot found',
+            )
+        job = self._job_service.get_nullable(job_id)
+        if not job or job.platform_id != platform.id:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content='RBAC scan job not found',
+            )
+        return self._build_single_pane_report(
+            platform=platform,
+            job=job,
+            filename=f'rbac-single-pane-platform-{platform.id}-latest.xlsx',
+        )
+
+    @validate_kwargs
+    def get_single_pane_job(
+        self,
+        event: PlatformK8sRbacReportGetModel,
+        job_id: str,
+    ):
+        job = self._job_service.get_nullable(job_id)
+        if not job or not job.is_platform_job:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content='Platform scan job not found',
+            )
+        platform = self._platform_service.get_nullable(
+            hash_key=job.platform_id
+        )
+        if not platform or (
+            event.customer and platform.customer != event.customer
+        ):
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content='Platform scan job not found',
+            )
+        if job.is_ed_job:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content='RBAC report is not available for event-driven scans',
+            )
+        return self._build_single_pane_report(
+            platform=platform,
+            job=job,
+            filename=(
+                f'rbac-single-pane-platform-{platform.id}-job-{job.id}.xlsx'
+            ),
+        )
+
+    @staticmethod
+    def _snapshot_warnings(
+        inventory: dict[str, list[dict]],
+        graph: RbacGraph,
+        *,
+        include_workloads: bool,
+    ) -> list[str]:
+        warnings = []
+        if not any(inventory.values()):
+            warnings.append(WARNING_EMPTY_INVENTORY)
+        elif not graph.has_bindings:
+            warnings.append(WARNING_NO_BINDINGS)
+        if include_workloads:
+            missing = [
+                rt
+                for rt in K8S_RBAC_OPTIONAL_RESOURCE_TYPES
+                if rt not in inventory
+            ]
+            if missing:
+                warnings.append(
+                    WARNING_NO_WORKLOADS.format(', '.join(missing))
+                )
+        return warnings
 
     def _build_report(
         self,
@@ -183,7 +280,9 @@ class RbacReportHandler(AbstractHandler):
         if inventory is None:
             return build_response(
                 code=HTTPStatus.NOT_FOUND,
-                content='Complete RBAC inventory snapshot not found for scan job',
+                content=(
+                    'Complete RBAC inventory snapshot not found for scan job'
+                ),
             )
 
         collection = self._report_service.platform_job_collection(
@@ -195,18 +294,9 @@ class RbacReportHandler(AbstractHandler):
         findings = self._iter_findings(collection, metadata)
         graph = RbacGraph.build(inventory)
 
-        warnings = []
-        if not any(inventory.values()):
-            warnings.append(WARNING_EMPTY_INVENTORY)
-        elif not graph.has_bindings:
-            warnings.append(WARNING_NO_BINDINGS)
-        missing = [
-            rt
-            for rt in K8S_RBAC_OPTIONAL_RESOURCE_TYPES
-            if rt not in inventory
-        ]
-        if missing:
-            warnings.append(WARNING_NO_WORKLOADS.format(', '.join(missing)))
+        warnings = self._snapshot_warnings(
+            inventory, graph, include_workloads=True
+        )
 
         descriptions = {
             rule: meta.get('description') or ''
@@ -220,6 +310,43 @@ class RbacReportHandler(AbstractHandler):
             # to disk instead of being kept in memory
             with Workbook(buffer, {'constant_memory': True}) as wb:
                 RbacXlsxWriter(wb).write_tables(tables)
+            buffer.seek(0)
+            url = self._report_service.one_time_url(
+                cast(BinaryIO, buffer),
+                filename,
+            )
+        content = ReportResponse(platform, url, fmt=ReportFormat.XLSX).dict()
+        content['job_id'] = job.id
+        if warnings:
+            content['warnings'] = warnings
+        return build_response(content=content)
+
+    def _build_single_pane_report(
+        self,
+        *,
+        platform: Platform,
+        job: Job,
+        filename: str,
+    ):
+        inventory = self._report_service.platform_rbac_snapshot_inventory(
+            platform, job
+        )
+        if inventory is None:
+            return build_response(
+                code=HTTPStatus.NOT_FOUND,
+                content=(
+                    'Complete RBAC inventory snapshot not found for scan job'
+                ),
+            )
+
+        graph = RbacGraph.build(inventory)
+        rows = build_summary_rows(graph)
+        warnings = self._snapshot_warnings(
+            inventory, graph, include_workloads=False
+        )
+        with tempfile.TemporaryFile() as buffer:
+            with Workbook(buffer, {'constant_memory': True}) as wb:
+                RbacXlsxWriter(wb).write_summary(rows)
             buffer.seek(0)
             url = self._report_service.one_time_url(
                 cast(BinaryIO, buffer),

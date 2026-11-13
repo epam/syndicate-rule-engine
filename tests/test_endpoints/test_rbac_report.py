@@ -166,10 +166,10 @@ def rbac_empty_latest_pair(k8s_platform, rbac_job, rbac_collection):
     )
 
 
-def _url(platform, job_id=None):
+def _url(platform, job_id=None, report_type='detailed'):
     if job_id:
-        return f'/reports/rbac/jobs/{job_id}'
-    return f'/reports/rbac/platforms/k8s/{platform.id}/latest'
+        return f'/reports/rbac/{report_type}/jobs/{job_id}'
+    return f'/reports/rbac/platforms/k8s/{platform.id}/{report_type}/latest'
 
 
 def _sheets(content) -> dict[str, list[dict]]:
@@ -206,7 +206,7 @@ def test_rbac_report(
     assert content['platform_id'] == k8s_platform.id
     assert content['job_id'] == rbac_job.id
     assert 'warnings' not in content
-    filename = f'rbac-platform-{k8s_platform.id}-latest.xlsx'
+    filename = f'rbac-detailed-platform-{k8s_platform.id}-latest.xlsx'
     assert filename in unquote(content['url'])
     [(sheet, [row])] = _sheets(content).items()
     assert sheet == 'ecc-k8s-001'
@@ -232,7 +232,9 @@ def test_rbac_job_report_filename(
     )
     assert resp.status_int == 200, resp.json
     content = resp.json['data']
-    filename = f'rbac-platform-{k8s_platform.id}-job-{rbac_job.id}.xlsx'
+    filename = (
+        f'rbac-detailed-platform-{k8s_platform.id}-job-{rbac_job.id}.xlsx'
+    )
     assert filename in unquote(content['url'])
 
 
@@ -266,7 +268,7 @@ def test_rbac_report_empty_inventory(
 
 def test_rbac_report_not_found(sre_client, system_user_token, k8s_platform):
     resp = sre_client.request(
-        '/reports/rbac/platforms/k8s/unknown/latest',
+        '/reports/rbac/platforms/k8s/unknown/detailed/latest',
         auth=system_user_token,
         data={'customer_id': k8s_platform.customer},
     )
@@ -291,11 +293,54 @@ def test_rbac_report_job_route(
     assert resp.json['data']['job_id'] == rbac_job.id
 
 
+@pytest.mark.parametrize('job_route', (False, True), ids=('latest', 'job'))
+def test_rbac_single_pane_report(
+    sre_client,
+    system_user_token,
+    k8s_platform,
+    rbac_job,
+    rbac_latest_pair,
+    job_route,
+):
+    resp = sre_client.request(
+        _url(
+            k8s_platform,
+            rbac_job.id if job_route else None,
+            report_type='compact',
+        ),
+        auth=system_user_token,
+        data={'customer_id': k8s_platform.customer},
+    )
+    assert resp.status_int == 200, resp.json
+    content = resp.json['data']
+    assert content['format'] == 'xlsx'
+    assert content['job_id'] == rbac_job.id
+    report_suffix = f'job-{rbac_job.id}' if job_route else 'latest'
+    expected_filename = (
+        f'rbac-single-pane-platform-{k8s_platform.id}-{report_suffix}.xlsx'
+    )
+    assert expected_filename in unquote(content['url'])
+
+    book = openpyxl.load_workbook(
+        io.BytesIO(requests.get(content['url']).content)
+    )
+    sheet = book['Single Pane of Glass']
+    headers = next(sheet.iter_rows(min_row=4, max_row=4, values_only=True))
+    values = next(sheet.iter_rows(min_row=5, values_only=True))
+    assert dict(zip(headers, values)) == {
+        'Subject': 'team/app',
+        'Type': 'SA',
+        'Access': '🔥',
+        'Scope': 'cluster-wide',
+        'Roles': 'super',
+    }
+
+
 def test_rbac_report_job_not_found(
     sre_client, system_user_token, k8s_platform
 ):
     resp = sre_client.request(
-        '/reports/rbac/jobs/unknown',
+        '/reports/rbac/detailed/jobs/unknown',
         auth=system_user_token,
         data={'customer_id': k8s_platform.customer},
     )

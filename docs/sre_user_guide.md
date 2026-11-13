@@ -1092,11 +1092,9 @@ Shows **who can do what** in a K8S platform for each role, cluster role or bindi
 Roles that are not bound to any subject are shown with `(not bound)`.
 
 ```console
-syndicate re report rbac latest --platform_id <platform_id> --json
-syndicate re report rbac job --job_id <job_id> --json
+syndicate re report rbac detailed latest --platform_id <platform_id> --json
+syndicate re report rbac detailed jobs --job_id <job_id> --json
 ```
-
-The report is available only in `xlsx`: the latest endpoint returns a one-time URL to `rbac-platform-<platform_id>-latest.xlsx`; the job endpoint returns `rbac-platform-<platform_id>-job-<job_id>.xlsx`. The introductory sheet explains the report and its columns; finding sheets follow in alphabetical order. Each table is a separate sheet. Use the `+` button above the columns to expand the detail columns.
 
 `latest` returns the latest complete scan and inventory snapshot pair for the specified platform. `job` resolves the platform from the specified scan job and returns that job's pair. Each report uses findings and RBAC resources captured for the same job. The RBAC snapshot is collected only for standard (non-event-driven) scans that include RBAC rules (role, cluster role and binding rules), and only those scans update the latest pointer, after both artifacts are complete. Event-driven scans have no RBAC report: `job` returns 404 for them. RBAC snapshot collection requires the following environment variable of the executor:
 
@@ -1107,6 +1105,20 @@ The report is available only in `xlsx`: the latest endpoint returns a one-time U
 If custom plugins are disabled or roles and bindings cannot be collected, the snapshot is incomplete: the job report is not available (404) and the latest complete report remains unchanged. Pods and replica sets are optional: if they cannot be collected, the report is still built without pods and contains a warning. If a scan has no RBAC resources or bindings, the report contains a warning.
 
 The snapshot stores only the fields the report needs (names, namespaces, owners, service accounts, rules and bindings). A list that does not fit into one cell (32,767 characters) is truncated and ends with `… (+N more)`.
+
+### Kubernetes RBAC Single Pane of Glass Report
+
+The Single Pane of Glass report is a compact alternative to the detailed
+[Kubernetes RBAC Report](#kubernetes-rbac-report). It has one table with one
+row per bound subject and the columns Subject, Type, Access, Scope, and Roles.
+It includes Users, Groups, and ServiceAccounts from the scan's bindings;
+ServiceAccount names include their namespace to distinguish identities with
+the same name.
+
+```console
+syndicate re report rbac compact latest --platform_id <platform_id> --json
+syndicate re report rbac compact jobs --job_id <job_id> --json
+```
 
 Other reports, such as `details`, `findings`, `rules`, `raw` and `digests`, are available under `syndicate re report --help`.
 
@@ -1430,8 +1442,10 @@ Permission model is aligned with the API available for managing the system. This
 | POST /reports/clevel | report:post_clevel | Allows to request clevel report |
 | GET /reports/status | report:get_status | Allows to get a status of report by id |
 | GET /reports/resources/platforms/k8s/{platform_id}/state/latest | report:get_k8s_platform_latest_resources | Allows to get latest resources report by K8S platform |
-| GET /reports/rbac/platforms/k8s/{platform_id}/latest | report:get_k8s_platform_latest_rbac | Allows to get the latest RBAC ("who can do what") report by K8S platform |
-| GET /reports/rbac/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the RBAC report for a K8S platform scan job |
+| GET /reports/rbac/platforms/k8s/{platform_id}/detailed/latest | report:get_k8s_platform_latest_rbac | Allows to get the latest RBAC ("who can do what") report by K8S platform |
+| GET /reports/rbac/detailed/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the RBAC report for a K8S platform scan job |
+| GET /reports/rbac/platforms/k8s/{platform_id}/compact/latest | report:get_k8s_platform_latest_rbac | Allows to get the latest Kubernetes RBAC compact report by platform |
+| GET /reports/rbac/compact/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the Kubernetes RBAC compact report for a scan job |
 | GET /reports/resources/tenants/{tenant_name}/state/latest | report:get_tenant_latest_resources | Allows to get latest resources report by tenant |
 | GET /reports/resources/tenants/{tenant_name}/jobs | report:get_job_resources_batch | Allows to get latest resources report by latest tenant jobs |
 | GET /reports/resources/jobs/{job_id} | report:get_job_resources | Allows to get latest resources report by job |
