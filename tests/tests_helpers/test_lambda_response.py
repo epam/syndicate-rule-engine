@@ -21,7 +21,6 @@ def test_ok_lambda_response():
         'statusCode': 200,
         'headers': {
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-            'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': '*',
             'Accept-Version': __version__,
             'Content-Type': 'text/html',
@@ -65,13 +64,30 @@ def test_json_lambda_response():
             'Accept-Version': __version__,
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
             'Access-Control-Allow-Methods': '*',
-            'Access-Control-Allow-Origin': '*',
             'Content-Type': 'application/json',
             'Lambda-Invocation-Trace-Id': 'mock'
         },
         'isBase64Encoded': False,
         'body': b'{"list":[1,2,3],"str":"value"}',
     }
+
+
+def test_cors_origin_is_returned_only_for_allowed_origin(monkeypatch):
+    monkeypatch.setenv(
+        'SRE_CORS_ALLOWED_ORIGINS',
+        'https://app.example.com, https://admin.example.com'
+    )
+    SP.tls.origin = 'https://app.example.com'
+    headers = LambdaResponse().build()['headers']
+
+    assert headers['Access-Control-Allow-Origin'] == 'https://app.example.com'
+    assert headers['Vary'] == 'Origin'
+
+    SP.tls.origin = 'https://evil.example.com'
+    headers = LambdaResponse().build()['headers']
+
+    assert 'Access-Control-Allow-Origin' not in headers
+    assert 'Vary' not in headers
 
 
 class TestResponseFactory:

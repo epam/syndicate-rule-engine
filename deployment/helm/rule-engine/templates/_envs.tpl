@@ -107,6 +107,10 @@ env:
   - name: SRE_RECOMMENDATIONS_BUCKET_NAME
     value: {{ .Values.recommendationsBucket }}
   {{- end }}
+  {{- if .Values.corsAllowedOrigins }}
+  - name: SRE_CORS_ALLOWED_ORIGINS
+    value: {{ .Values.corsAllowedOrigins | quote }}
+  {{- end }}
   {{- if .Values.minioPresignedUrl }}
   - name: SRE_MINIO_PRESIGNED_URL_HOST
     value: {{ .Values.minioPresignedUrl | quote }}
