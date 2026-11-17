@@ -1,3 +1,4 @@
+import gc
 import os
 
 bind = "0.0.0.0:8000"
@@ -19,3 +20,7 @@ def on_starting(server):
         load_cc_providers()
     except Exception:
         server.log.exception('Could not preload Cloud Custodian providers')
+    # Exclude preloaded objects from workers' GC scans: scanning writes to
+    # object headers, which copies the shared pages into every worker.
+    gc.collect()
+    gc.freeze()
