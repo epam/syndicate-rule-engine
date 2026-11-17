@@ -3,7 +3,7 @@ mongoUri:
 innerCacheTTLSeconds: '300'
 workers: 2
 memoryLimit: 2Gi # temporary limit
-memoryRequest: 128Mi
+memoryRequest: 256Mi
 
 service:
   type: ClusterIP
