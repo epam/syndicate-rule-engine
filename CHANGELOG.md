@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed tenant describe responses to return cloud-native region names
 - Fixed too permissive CORS origins security issue
 - Fixed API pod OOM kills caused by every Gunicorn worker importing all Cloud Custodian providers (~200MB each) on its first report request. Providers are now preloaded once in the Gunicorn master and shared by workers
+- Fixed submission of duplicate jobs for the same tenant regions or K8s platform: the job lock is now acquired at submission instead of at job start
 
 ### Changed
 - Show per-license results for `metadata_update` operation status, including each license key, update state, and start time
