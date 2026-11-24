@@ -9,10 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added `sre report questionnaire standards` to list questionnaire standards
   and versions grouped by cloud/platform domain
-- Added `sre report rbac detailed latest` and `sre report rbac detailed jobs` commands to generate detailed
-  Kubernetes RBAC Excel reports
-- Added `sre report rbac compact latest` and `sre report rbac compact jobs` commands to generate compact 
-  single-pane-of-glass Kubernetes RBAC Excel reports
+- Added `sre report rbac detailed latest|jobs` commands to generate detailed Kubernetes RBAC Excel reports
+- Added `sre report rbac compact latest|jobs` commands to generate compact single-pane-of-glass Kubernetes RBAC Excel reports
 
 ## [5.22.0] - 2026-11-04
 
