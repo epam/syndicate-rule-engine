@@ -758,6 +758,14 @@ class K8sRbacReportModel(BaseModel):
     data: K8sRbacReportHref
 
 
+class K8sWorkloadsReportHref(BaseReportEntity):
+    job_id: NotRequired[str]
+
+
+class K8sWorkloadsReportModel(BaseModel):
+    data: K8sWorkloadsReportHref
+
+
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None

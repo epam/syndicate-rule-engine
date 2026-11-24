@@ -151,6 +151,16 @@ class Endpoint(str, Enum):
         '/reports/rbac/platforms/k8s/{platform_id}/compact/latest'
     )
     REPORTS_RBAC_COMPACT_JOB = '/reports/rbac/compact/jobs/{job_id}'
+    REPORTS_WORKLOADS_DETAILED_LATEST = (
+        '/reports/workloads/platforms/k8s/{platform_id}/detailed/latest'
+    )
+    REPORTS_WORKLOADS_DETAILED_JOB = (
+        '/reports/workloads/detailed/jobs/{job_id}'
+    )
+    REPORTS_WORKLOADS_SUMMARY_LATEST = (
+        '/reports/workloads/platforms/k8s/{platform_id}/summary/latest'
+    )
+    REPORTS_WORKLOADS_SUMMARY_JOB = '/reports/workloads/summary/jobs/{job_id}'
 
 
 LAMBDA_INVOCATION_TRACE_ID_HEADER = 'Lambda-Invocation-Trace-Id'

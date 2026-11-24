@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Kubernetes RBAC Excel reports
 - Added `sre report rbac compact latest` and `sre report rbac compact jobs` commands to generate compact 
   single-pane-of-glass Kubernetes RBAC Excel reports
+- Added `sre report workloads detailed latest|jobs` and `sre report workloads summary latest|jobs`
+  commands to generate Kubernetes workloads rule-level Excel reports for pod rules
 
 ## [5.22.0] - 2026-11-04
 
