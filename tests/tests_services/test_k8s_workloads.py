@@ -1,6 +1,7 @@
 from helpers.constants import Severity
 from services.k8s_workloads import (
     WorkloadFinding,
+    build_summary,
     build_tables,
     pod_owner,
     rule_matches,
@@ -8,16 +9,17 @@ from services.k8s_workloads import (
 from services.metadata import Metadata, RuleMetadata
 
 RULE = 'ecc-k8s-066-privileged_containers'
+HOST_RULE = 'ecc-k8s-070-host_network'
 
 
-def _pod(name, namespace='team', owners=None, matched=None):
+def _pod(name, namespace='team', owners=None, matched=None, rule=RULE):
     data = {'metadata': {'name': name, 'namespace': namespace}}
     if owners is not None:
         data['metadata']['owner_references'] = owners
     if matched is not None:
         data['c7n:MatchedFilters'] = matched
     return WorkloadFinding(
-        rule=RULE, name=name, namespace=namespace, data=data
+        rule=rule, name=name, namespace=namespace, data=data
     )
 
 
@@ -53,6 +55,7 @@ def test_build_tables_detailed_and_summary():
         _pod('web-5d-b', owners=rs, matched=['spec.containers[*]']),
         _pod('web-5d-b', owners=rs, matched=['spec.containers[*]']),
         _pod('lonely', namespace='default'),
+        _pod('web-5d-c', owners=rs, rule=HOST_RULE),
     ]
     rule_meta = RuleMetadata(
         source='',
@@ -65,7 +68,7 @@ def test_build_tables_detailed_and_summary():
         cloud='KUBERNETES',
         severity=Severity.HIGH,
     )
-    [table] = build_tables(
+    table, host_table = build_tables(
         findings,
         Metadata(rules={RULE: rule_meta}),
         {RULE: 'Privileged containers'},
@@ -83,10 +86,15 @@ def test_build_tables_detailed_and_summary():
     assert table.pods[1].matched_filters == ('spec.containers[*]',)
 
     summary = [
-        (w.owner_name, w.owner_kind, w.namespace, w.pods)
-        for w in table.workloads
+        (w.owner_name, w.owner_kind, w.namespace, w.violations)
+        for w in build_summary([table, host_table])
     ]
     assert summary == [
-        ('lonely', 'Pod', 'default', 1),
-        ('web-5d', 'ReplicaSet', 'team', 2),
+        ('lonely', 'Pod', 'default', ('privileged_containers',)),
+        (
+            'web-5d',
+            'ReplicaSet',
+            'team',
+            ('privileged_containers', 'host_network'),
+        ),
     ]

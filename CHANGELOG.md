@@ -19,12 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GET /reports/rbac/platforms/k8s/{platform_id}/compact/latest` returns the latest complete report
     for a platform
   - `GET /reports/rbac/compact/jobs/{job_id}` returns the report for a specific platform scan
-- Added Kubernetes workloads rule-level report endpoints that return an Excel report with one sheet
-  per `k8s.pod` rule:
+- Added Kubernetes workloads rule-level report endpoints for `k8s.pod` rules that return an Excel report:
   - `GET /reports/workloads/platforms/k8s/{platform_id}/detailed/latest` and
-    `GET /reports/workloads/detailed/jobs/{job_id}` list violated pods with their immediate owners
+    `GET /reports/workloads/detailed/jobs/{job_id}` list violated pods with their immediate owners,
+    one sheet per rule
   - `GET /reports/workloads/platforms/k8s/{platform_id}/summary/latest` and
-    `GET /reports/workloads/summary/jobs/{job_id}` list unique violated workloads with pod counts
+    `GET /reports/workloads/summary/jobs/{job_id}` list all unique violated workloads in one sheet
+    with the titles of the pod rules they violate
 - Added `k8s.cluster-role` aggregation annotations (`c7n:aggregated-into`, `c7n:aggregated-from`) to the
   custom Cloud Custodian plugins
 

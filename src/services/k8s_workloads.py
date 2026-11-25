@@ -1,13 +1,13 @@
 """
 Kubernetes workloads rule-level reports.
 
-Groups violated pods (findings of ``k8s.pod`` rules) by rule and builds two
-kinds of tables for each rule:
+Groups violated pods (findings of ``k8s.pod`` rules) and builds two kinds
+of tables:
 
-- detailed: one row per pod with its namespace, immediate owner and the
-  filters that matched (``c7n:MatchedFilters``);
-- summary: one row per unique workload (immediate owner) with the number
-  of its violated pods.
+- detailed: one table per rule with a row per pod: its namespace,
+  immediate owner and the filters that matched (``c7n:MatchedFilters``);
+- summary: one table across all rules with a row per unique workload
+  (immediate owner) and the titles of all pod rules that it violates.
 
 The owner is the immediate controller from ``metadata.ownerReferences``
 (ReplicaSet for Deployment pods, Job for CronJob pods). A pod without
@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 from helpers.constants import Severity
 from helpers.k8s_rbac import get_any
-from services.k8s_rbac import _short_rule_id
+from services.k8s_rbac import _rule_title, _short_rule_id
 from services.metadata import Metadata
 
 POD = 'k8s.pod'
@@ -51,7 +51,7 @@ class WorkloadRow:
     owner_name: str
     owner_kind: str
     namespace: str
-    pods: int
+    violations: tuple[str, ...] = ()
 
 
 @dataclass
@@ -64,21 +64,6 @@ class WorkloadTable:
     @property
     def short_rule_id(self) -> str:
         return _short_rule_id(self.rule)
-
-    @property
-    def workloads(self) -> list[WorkloadRow]:
-        counts: dict[tuple[str, str, str], int] = {}
-        for pod in self.pods:
-            key = (pod.owner_name, pod.owner_kind, pod.namespace)
-            counts[key] = counts.get(key, 0) + 1
-        rows = [
-            WorkloadRow(
-                owner_name=name, owner_kind=kind, namespace=ns, pods=count
-            )
-            for (name, kind, ns), count in counts.items()
-        ]
-        rows.sort(key=lambda r: (r.namespace, r.owner_kind, r.owner_name))
-        return rows
 
 
 def pod_owner(pod: Mapping) -> tuple[str, str] | None:
@@ -162,4 +147,31 @@ def build_tables(
         )
         result.append(table)
     result.sort(key=lambda t: (t.short_rule_id.lower(), t.rule))
+
     return result
+
+
+def build_summary(tables: Iterable[WorkloadTable]) -> list[WorkloadRow]:
+    """
+    One row per unique workload (owner name, owner kind, namespace) across
+    all tables with the titles of the rules it violates, in the table order
+    """
+    violations: dict[tuple[str, str, str], list[str]] = {}
+    for table in tables:
+        title = _rule_title(table.rule)
+        for pod in table.pods:
+            key = (pod.owner_name, pod.owner_kind, pod.namespace)
+            titles = violations.setdefault(key, [])
+            if title not in titles:
+                titles.append(title)
+    rows = [
+        WorkloadRow(
+            owner_name=name,
+            owner_kind=kind,
+            namespace=ns,
+            violations=tuple(titles),
+        )
+        for (name, kind, ns), titles in violations.items()
+    ]
+    rows.sort(key=lambda r: (r.namespace, r.owner_kind, r.owner_name))
+    return rows

@@ -1,7 +1,8 @@
 """
 Renders K8s workloads rule-level tables to xlsx: an introduction sheet and
-one sheet per rule. Each rule sheet has a short header block (title, rule,
-severity) and a table with autofilter and frozen header row.
+either one sheet per rule (detailed) or one Workloads sheet with all unique
+workloads (summary). Each rule sheet has a short header block (title, rule,
+severity). Tables have autofilter and frozen header row.
 """
 
 from collections.abc import Callable
@@ -18,13 +19,13 @@ from services.k8s_rbac_xlsx import (
     _join,
     unique_sheet_name,
 )
-from services.k8s_workloads import PodRow, WorkloadRow, WorkloadTable
+from services.k8s_workloads import WorkloadRow, WorkloadTable, build_summary
 
 
 @dataclass(frozen=True)
 class Column:
     header: str
-    getter: Callable[[Any], str | int]
+    getter: Callable[[Any], str]
     width: int = 20
 
 
@@ -40,8 +41,20 @@ SUMMARY_COLUMNS: tuple[Column, ...] = (
     Column('Owner name', lambda r: r.owner_name, 44),
     Column('Owner kind', lambda r: r.owner_kind, 16),
     Column('Namespace', lambda r: r.namespace, 24),
-    Column('Pods', lambda r: r.pods, 10),
+    Column('Violations', lambda r: _join(r.violations), 80),
 )
+
+_WORKSHEETS = {
+    'detailed': (
+        'Each subsequent worksheet contains findings of one pod rule and is '
+        'named by the rule short ID.'
+    ),
+    'summary': (
+        'The Workloads worksheet contains all unique workloads with '
+        'violated pods.'
+    ),
+}
+WORKLOADS_SHEET = 'Workloads'
 
 _INTRO = {
     'detailed': (
@@ -55,7 +68,8 @@ _INTRO = {
         'Kubernetes workloads report: summary',
         (
             'Lists unique workloads (immediate pod owners) with violated '
-            'pods for each pod rule and the number of their violated pods.'
+            'pods of all pod rules. Violations lists the titles of all '
+            'pod rules that the workload violates.'
         ),
     ),
 }
@@ -82,33 +96,34 @@ class WorkloadsXlsxWriter:
         self._gray = wb.add_format({'bg_color': '#bfbfbf'})
 
     def write(self, tables: list[WorkloadTable]) -> None:
-        self.write_introduction(tables)
+        self.write_introduction()
+        if self._summary:
+            self.write_summary(build_summary(tables))
+            return
         if not tables:
-            wsh = self._wb.add_worksheet(
-                unique_sheet_name('Workloads', self._used)
-            )
-            wsh.write(0, 0, 'No pod rule findings', self._bold)
+            self._write_empty()
             return
         for table in tables:
             self.write_table(table)
 
-    def write_introduction(self, tables: list[WorkloadTable]) -> None:
+    def _write_empty(self) -> None:
+        wsh = self._wb.add_worksheet(
+            unique_sheet_name(WORKLOADS_SHEET, self._used)
+        )
+        wsh.write(0, 0, 'No pod rule findings', self._bold)
+
+    def write_introduction(self) -> None:
         wsh = self._wb.add_worksheet(
             unique_sheet_name('Introduction', self._used)
         )
         wsh.set_column(0, 0, 24)
         wsh.set_column(1, 1, 100)
-        title, purpose = _INTRO['summary' if self._summary else 'detailed']
+        kind = 'summary' if self._summary else 'detailed'
+        title, purpose = _INTRO[kind]
         wsh.write(0, 0, title, self._title)
         sections = (
             ('Purpose', purpose),
-            (
-                'Worksheets',
-                (
-                    'Each subsequent worksheet contains findings of one pod '
-                    'rule and is named by the rule short ID.'
-                ),
-            ),
+            ('Worksheets', _WORKSHEETS[kind]),
             (
                 'Owner',
                 (
@@ -120,19 +135,10 @@ class WorkloadsXlsxWriter:
                 ),
             ),
         )
-        row = 2
         for row, (label, text) in enumerate(sections, start=2):
             wsh.write(row, 0, label, self._intro_label)
             wsh.write(row, 1, text, self._intro_text)
             wsh.set_row(row, 36)
-        if not tables:
-            return
-        header_row = row + 2
-        wsh.write(header_row, 0, 'Rule ID', self._header)
-        wsh.write(header_row, 1, 'Title', self._header)
-        for row, table in enumerate(tables, start=header_row + 1):
-            wsh.write_string(row, 0, table.short_rule_id)
-            wsh.write_string(row, 1, table.title[:MAX_CELL_LENGTH])
 
     def write_table(self, table: WorkloadTable) -> Worksheet:
         wsh = self._wb.add_worksheet(
@@ -150,25 +156,31 @@ class WorkloadsXlsxWriter:
             self._severity.get(table.severity, self._gray),
         )
 
-        header_row = 4
+        self._write_rows(wsh, 4, table.pods)
+        return wsh
+
+    def write_summary(self, rows: list[WorkloadRow]) -> Worksheet | None:
+        if not rows:
+            self._write_empty()
+            return None
+        wsh = self._wb.add_worksheet(
+            unique_sheet_name(WORKLOADS_SHEET, self._used)
+        )
+        self._write_rows(wsh, 0, rows)
+        return wsh
+
+    def _write_rows(
+        self, wsh: Worksheet, header_row: int, rows: list[Any]
+    ) -> None:
         for col, column in enumerate(self._columns):
             wsh.write(header_row, col, column.header, self._header)
             wsh.set_column(col, col, column.width)
 
-        rows: list[PodRow] | list[WorkloadRow] = (
-            table.workloads if self._summary else table.pods
-        )
         row_idx = header_row
         for row_idx, row in enumerate(rows, start=header_row + 1):
             for col, column in enumerate(self._columns):
-                value = column.getter(row)
-                if isinstance(value, int):
-                    wsh.write_number(row_idx, col, value)
-                else:
-                    wsh.write_string(
-                        row_idx, col, (value or EMPTY)[:MAX_CELL_LENGTH]
-                    )
+                value = column.getter(row) or EMPTY
+                wsh.write_string(row_idx, col, value[:MAX_CELL_LENGTH])
 
         wsh.autofilter(header_row, 0, row_idx, len(self._columns) - 1)
         wsh.freeze_panes(header_row + 1, 1)
-        return wsh

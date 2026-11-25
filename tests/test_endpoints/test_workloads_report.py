@@ -89,9 +89,10 @@ def _sheets(content) -> dict[str, list[dict]]:
     book = openpyxl.load_workbook(io.BytesIO(body))
     result = {}
     for sheet in book.worksheets:
-        if sheet.title in {'Introduction', 'Workloads'}:
+        if sheet.title == 'Introduction':
             continue
-        header, *rows = sheet.iter_rows(min_row=5, values_only=True)
+        min_row = 1 if sheet.title == 'Workloads' else 5
+        header, *rows = sheet.iter_rows(min_row=min_row, values_only=True)
         result[sheet.title] = [dict(zip(header, row)) for row in rows]
     return result
 
@@ -139,11 +140,15 @@ def test_workloads_summary_job(
         f'-job-{workloads_job.id}.xlsx'
     )
     assert filename in unquote(content['url'])
-    [rows] = _sheets(content).values()
+    [(sheet, rows)] = _sheets(content).items()
+    assert sheet == 'Workloads'
     assert [
-        (r['Owner name'], r['Owner kind'], r['Namespace'], r['Pods'])
+        (r['Owner name'], r['Owner kind'], r['Namespace'], r['Violations'])
         for r in rows
-    ] == [('bare', 'Pod', 'team', 1), ('web-5d', 'ReplicaSet', 'team', 2)]
+    ] == [
+        ('bare', 'Pod', 'team', 'privileged_containers'),
+        ('web-5d', 'ReplicaSet', 'team', 'privileged_containers'),
+    ]
 
 
 def test_workloads_unknown_rule(
