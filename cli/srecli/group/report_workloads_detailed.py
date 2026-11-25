@@ -12,7 +12,7 @@ from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 @click.group(name='detailed')
 def detailed():
-    """Generate detailed Kubernetes workloads reports: violated pods"""
+    """Describes detailed Kubernetes workloads reports: violated pods"""
 
 
 @detailed.command(cls=ViewCommand, name='jobs')

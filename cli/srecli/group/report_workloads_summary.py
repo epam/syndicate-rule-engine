@@ -12,7 +12,7 @@ from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 @click.group(name='summary')
 def summary():
-    """Generate summary Kubernetes workloads reports: unique workloads"""
+    """Describes summary Kubernetes workloads reports: unique workloads"""
 
 
 @summary.command(cls=ViewCommand, name='jobs')
