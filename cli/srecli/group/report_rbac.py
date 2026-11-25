@@ -6,7 +6,7 @@ from srecli.group.report_rbac_summary import summary
 
 @click.group(name='rbac')
 def rbac():
-    """Generate Kubernetes RBAC reports"""
+    """Describes Kubernetes RBAC reports"""
 
 
 rbac.add_command(detailed)
