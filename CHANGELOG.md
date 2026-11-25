@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added `GET /reports/questionnaire/standards` to list questionnaire standards and versions grouped by cloud/platform domain
+- Added the ability to configure `SRE_CORS_ALLOWED_ORIGINS` via Helm chart values (`corsAllowedOrigins`)
+- Added the `Strict-Transport-Security` response header (default `max-age=31536000; includeSubDomains`). It can be changed or disabled (empty value `''`) via `SRE_HSTS_HEADER` / Helm `hstsHeader`
 - Added Kubernetes RBAC ("who can do what") report endpoints that return an Excel report:
   - `GET /reports/rbac/platforms/k8s/{platform_id}/detailed/latest` returns the latest complete report for a platform
   - `GET /reports/rbac/detailed/jobs/{job_id}` returns the report for a specific platform scan
@@ -18,9 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `k8s.cluster-role` aggregation annotations (`c7n:aggregated-into`, `c7n:aggregated-from`) to the custom Cloud Custodian plugins
 
 ### Fixed
-- Improved the questionnaire report error for standards unavailable to the
-  selected job or tenant; the message now points to the standards listing command
+- Improved the questionnaire report error for standards unavailable to the selected job or tenant; the message now points to the standards listing command
 - Fixed tenant describe responses to return cloud-native region names
+- Fixed too permissive CORS origins security issue
+- Fixed API pod OOM kills caused by every Gunicorn worker importing all Cloud Custodian providers (~200MB each) on its first report request. Providers are now preloaded once in the Gunicorn master and shared by workers
+- Fixed submission of duplicate jobs for the same tenant regions or K8s platform: the job lock is now acquired at submission instead of at job start
 
 ### Changed
 - Show per-license results for `metadata_update` operation status, including each license key, update state, and start time

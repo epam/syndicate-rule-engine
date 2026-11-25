@@ -25,6 +25,7 @@ from helpers.lambda_response import ResponseFactory, build_response
 from helpers.log_helper import get_logger
 from helpers.mixins import SubmitJobToBatchMixin
 from helpers.system_customer import SystemCustomer
+from helpers.time_helper import utc_iso
 from executor.job.scan import scan_is_resumable
 from models.job import Job
 from models.ruleset import Ruleset
@@ -475,6 +476,29 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
             ]
         return rulesets
 
+    def _submit_locked_job(
+        self,
+        tenant_name: str,
+        job: Job,
+        timeout: int | None = None,
+        fail_job: bool = True,
+    ):
+        try:
+            return self._submit_job_to_batch(
+                tenant_name=tenant_name, job=job, timeout=timeout
+            )
+        except Exception:
+            _LOG.exception(f'Could not submit job {job.id}. Releasing lock')
+            TenantSettingJobLock(tenant_name).release(job.id)
+            if fail_job:
+                self._job_service.update(
+                    job=job,
+                    status=JobState.FAILED,
+                    reason='Could not submit the job for execution',
+                    stopped_at=utc_iso(),
+                )
+            raise
+
     @validate_kwargs
     def post(self, event: JobPostModel, _tap: TenantsAccessPayload):
         """
@@ -593,9 +617,12 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
             application_id=event.application_id,
             dojo_structure=event.dojo_structure(),
         )
+        TenantSettingJobLock(tenant.name).acquire(
+            job_id=job.id, regions=regions_to_scan
+        )
         self._job_service.save(job)
 
-        resp = self._submit_job_to_batch(
+        resp = self._submit_locked_job(
             tenant_name=tenant.name,
             job=job,
             timeout=int(event.timeout_minutes * 60)
@@ -808,7 +835,9 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
                 )
                 .exc()
             )
-        if jid := TenantSettingJobLock(tenant.name).locked_for(job.regions):
+        lock = TenantSettingJobLock(tenant.name)
+        lock_keys = [job.platform_id] if job.platform_id else job.regions
+        if jid := lock.locked_for(lock_keys):
             if jid != job.id:
                 raise (
                     ResponseFactory(HTTPStatus.CONFLICT)
@@ -818,10 +847,12 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
                     )
                     .exc()
                 )
+        lock.acquire(job_id=job.id, regions=lock_keys)
 
-        resp = self._submit_job_to_batch(
+        resp = self._submit_locked_job(
             tenant_name=tenant.name,
             job=job,
+            fail_job=False,
         )
         self._job_service.update(
             job=job,
@@ -851,9 +882,8 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
         tenant = self._obtain_tenant(
             platform.tenant_name, _tap, event.customer
         )
-        if jid := TenantSettingJobLock(tenant.name).locked_for(
-            platform.platform_id
-        ):
+        lock = TenantSettingJobLock(tenant.name)
+        if jid := lock.locked_for(platform.id):
             raise (
                 ResponseFactory(HTTPStatus.FORBIDDEN)
                 .message(
@@ -900,8 +930,9 @@ class JobHandler(AbstractHandler, SubmitJobToBatchMixin):
             credentials_key=credentials_key,
             dojo_structure=event.dojo_structure(),
         )
+        lock.acquire(job_id=job.id, regions=[platform.id])
         self._job_service.save(job)
-        resp = self._submit_job_to_batch(
+        resp = self._submit_locked_job(
             tenant_name=tenant.name,
             job=job,
             timeout=int(event.timeout_minutes * 60)

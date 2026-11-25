@@ -74,7 +74,12 @@ class JobExecutionContext:
     def __enter__(self):
         _LOG.info(f'Acquiring lock for job {self.job.id}')
         TenantSettingJobLock(self.tenant.name).acquire(
-            job_id=self.job.id, regions=self.job.regions
+            job_id=self.job.id,
+            regions=(
+                [self.job.platform_id]
+                if self.is_platform_job()
+                else self.job.regions
+            ),
         )
         _LOG.info('Setting job status to RUNNING')
         self.updater.started_at = utc_iso()
