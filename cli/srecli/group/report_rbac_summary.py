@@ -10,12 +10,12 @@ from srecli.group import (
 from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 
-@click.group(name='compact')
-def compact():
-    """Generate compact Kubernetes RBAC Single Pane of Glass reports"""
+@click.group(name='summary')
+def summary():
+    """Describes summary Kubernetes RBAC Single Pane of Glass reports"""
 
 
-@compact.command(cls=ViewCommand, name='jobs')
+@summary.command(cls=ViewCommand, name='jobs')
 @build_job_id_option(required=True)
 @cli_response()
 @presigned_url_hints_pack
@@ -34,7 +34,7 @@ def jobs(
     )
 
 
-@compact.command(cls=ViewCommand, name='latest')
+@summary.command(cls=ViewCommand, name='latest')
 @click.option(
     '--platform_id', '-pid', type=str, required=True, help='Platform id'
 )

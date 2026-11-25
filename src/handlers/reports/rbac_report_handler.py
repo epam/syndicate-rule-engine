@@ -80,10 +80,10 @@ class RbacReportHandler(AbstractHandler):
             Endpoint.REPORTS_RBAC_DETAILED_JOB: {
                 HTTPMethod.GET: self.get_detailed_job
             },
-            Endpoint.REPORTS_RBAC_COMPACT_LATEST: {
+            Endpoint.REPORTS_RBAC_SUMMARY_LATEST: {
                 HTTPMethod.GET: self.get_single_pane_latest
             },
-            Endpoint.REPORTS_RBAC_COMPACT_JOB: {
+            Endpoint.REPORTS_RBAC_SUMMARY_JOB: {
                 HTTPMethod.GET: self.get_single_pane_job
             },
         }

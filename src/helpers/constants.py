@@ -174,10 +174,10 @@ class Endpoint(str, Enum):
         '/reports/rbac/platforms/k8s/{platform_id}/detailed/latest'
     )
     REPORTS_RBAC_DETAILED_JOB = '/reports/rbac/detailed/jobs/{job_id}'
-    REPORTS_RBAC_COMPACT_LATEST = (
-        '/reports/rbac/platforms/k8s/{platform_id}/compact/latest'
+    REPORTS_RBAC_SUMMARY_LATEST = (
+        '/reports/rbac/platforms/k8s/{platform_id}/summary/latest'
     )
-    REPORTS_RBAC_COMPACT_JOB = '/reports/rbac/compact/jobs/{job_id}'
+    REPORTS_RBAC_SUMMARY_JOB = '/reports/rbac/summary/jobs/{job_id}'
     REPORTS_WORKLOADS_DETAILED_LATEST = (
         '/reports/workloads/platforms/k8s/{platform_id}/detailed/latest'
     )

@@ -306,7 +306,7 @@ def test_rbac_single_pane_report(
         _url(
             k8s_platform,
             rbac_job.id if job_route else None,
-            report_type='compact',
+            report_type='summary',
         ),
         auth=system_user_token,
         data={'customer_id': k8s_platform.customer},
