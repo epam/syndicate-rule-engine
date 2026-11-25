@@ -1046,7 +1046,7 @@ class SREApiClient:
 
     def platform_report_rbac_single_pane_latest(self, platform_id, **kwargs):
         return self.make_request(
-            path=Endpoint.REPORTS_RBAC_COMPACT_LATEST,
+            path=Endpoint.REPORTS_RBAC_SUMMARY_LATEST,
             path_params={'platform_id': platform_id},
             method=HTTPMethod.GET,
             query=sifted(kwargs),
@@ -1054,7 +1054,7 @@ class SREApiClient:
 
     def report_rbac_single_pane_job(self, job_id, **kwargs):
         return self.make_request(
-            path=Endpoint.REPORTS_RBAC_COMPACT_JOB,
+            path=Endpoint.REPORTS_RBAC_SUMMARY_JOB,
             path_params={'job_id': job_id},
             method=HTTPMethod.GET,
             query=sifted(kwargs),

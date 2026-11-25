@@ -1327,7 +1327,7 @@ data: tuple[EndpointInfo, ...] = (
         'job. Returns a URL to an xlsx file',
     ),
     EndpointInfo(
-        path=Endpoint.REPORTS_RBAC_COMPACT_LATEST,
+        path=Endpoint.REPORTS_RBAC_SUMMARY_LATEST,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=PlatformK8sRbacReportGetModel,
@@ -1337,7 +1337,7 @@ data: tuple[EndpointInfo, ...] = (
         'of glass report by platform. Returns a URL to an xlsx file',
     ),
     EndpointInfo(
-        path=Endpoint.REPORTS_RBAC_COMPACT_JOB,
+        path=Endpoint.REPORTS_RBAC_SUMMARY_JOB,
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=PlatformK8sRbacReportGetModel,

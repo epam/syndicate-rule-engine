@@ -1116,8 +1116,8 @@ ServiceAccount names include their namespace to distinguish identities with
 the same name.
 
 ```console
-syndicate re report rbac compact latest --platform_id <platform_id> --json
-syndicate re report rbac compact jobs --job_id <job_id> --json
+syndicate re report rbac summary latest --platform_id <platform_id> --json
+syndicate re report rbac summary jobs --job_id <job_id> --json
 ```
 
 Other reports, such as `details`, `findings`, `rules`, `raw` and `digests`, are available under `syndicate re report --help`.
@@ -1444,8 +1444,8 @@ Permission model is aligned with the API available for managing the system. This
 | GET /reports/resources/platforms/k8s/{platform_id}/state/latest | report:get_k8s_platform_latest_resources | Allows to get latest resources report by K8S platform |
 | GET /reports/rbac/platforms/k8s/{platform_id}/detailed/latest | report:get_k8s_platform_latest_rbac | Allows to get the latest RBAC ("who can do what") report by K8S platform |
 | GET /reports/rbac/detailed/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the RBAC report for a K8S platform scan job |
-| GET /reports/rbac/platforms/k8s/{platform_id}/compact/latest | report:get_k8s_platform_latest_rbac | Allows to get the latest Kubernetes RBAC compact report by platform |
-| GET /reports/rbac/compact/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the Kubernetes RBAC compact report for a scan job |
+| GET /reports/rbac/platforms/k8s/{platform_id}/summary/latest | report:get_k8s_platform_latest_rbac | Allows to get the latest Kubernetes RBAC summary report by platform |
+| GET /reports/rbac/summary/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the Kubernetes RBAC summary report for a scan job |
 | GET /reports/resources/tenants/{tenant_name}/state/latest | report:get_tenant_latest_resources | Allows to get latest resources report by tenant |
 | GET /reports/resources/tenants/{tenant_name}/jobs | report:get_job_resources_batch | Allows to get latest resources report by latest tenant jobs |
 | GET /reports/resources/jobs/{job_id} | report:get_job_resources | Allows to get latest resources report by job |
