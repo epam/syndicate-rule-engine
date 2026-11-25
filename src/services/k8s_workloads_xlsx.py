@@ -138,7 +138,7 @@ class WorkloadsXlsxWriter:
         for row, (label, text) in enumerate(sections, start=2):
             wsh.write(row, 0, label, self._intro_label)
             wsh.write(row, 1, text, self._intro_text)
-            wsh.set_row(row, 36)
+            wsh.set_row(row, 54 if label == 'Owner' else 36)
 
     def write_table(self, table: WorkloadTable) -> Worksheet:
         wsh = self._wb.add_worksheet(
