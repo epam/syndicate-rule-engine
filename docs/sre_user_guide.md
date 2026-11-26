@@ -1120,6 +1120,18 @@ syndicate re report rbac summary latest --platform_id <platform_id> --json
 syndicate re report rbac summary jobs --job_id <job_id> --json
 ```
 
+### Kubernetes Workloads Report
+
+Shows the pods and workloads that violate each `k8s.pod` rule in a K8S
+platform scan.
+
+```console
+syndicate re report workloads detailed latest --platform_id <platform_id> --json
+syndicate re report workloads detailed jobs --job_id <job_id> --json
+syndicate re report workloads summary latest --platform_id <platform_id> --rule ecc-k8s-066 --json
+syndicate re report workloads summary jobs --job_id <job_id> --json
+```
+
 Other reports, such as `details`, `findings`, `rules`, `raw` and `digests`, are available under `syndicate re report --help`.
 
 ### Errors Report
@@ -1493,6 +1505,10 @@ Permission model is aligned with the API available for managing the system. This
 | GET /reports/rbac/detailed/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the RBAC report for a K8S platform scan job |
 | GET /reports/rbac/platforms/k8s/{platform_id}/summary/latest | report:get_k8s_platform_latest_rbac | Allows to get the latest Kubernetes RBAC summary report by platform |
 | GET /reports/rbac/summary/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the Kubernetes RBAC summary report for a scan job |
+| GET /reports/workloads/platforms/k8s/{platform_id}/detailed/latest | report:get_k8s_platform_latest_workloads | Allows to get the latest detailed Kubernetes workloads report by platform |
+| GET /reports/workloads/detailed/jobs/{job_id} | report:get_k8s_platform_job_workloads | Allows to get the detailed Kubernetes workloads report for a scan job |
+| GET /reports/workloads/platforms/k8s/{platform_id}/summary/latest | report:get_k8s_platform_latest_workloads | Allows to get the latest summary Kubernetes workloads report by platform |
+| GET /reports/workloads/summary/jobs/{job_id} | report:get_k8s_platform_job_workloads | Allows to get the summary Kubernetes workloads report for a scan job |
 | GET /reports/resources/tenants/{tenant_name}/state/latest | report:get_tenant_latest_resources | Allows to get latest resources report by tenant |
 | GET /reports/resources/tenants/{tenant_name}/jobs | report:get_job_resources_batch | Allows to get latest resources report by latest tenant jobs |
 | GET /reports/resources/jobs/{job_id} | report:get_job_resources | Allows to get latest resources report by job |

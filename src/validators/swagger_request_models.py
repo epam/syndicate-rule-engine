@@ -2093,6 +2093,16 @@ class PlatformK8sRbacReportGetModel(BaseModel):
     pass
 
 
+class PlatformK8sWorkloadsReportGetModel(BaseModel):
+    rule: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1)
+    ] = Field(
+        None,
+        description='Pod rule name or its short id (e.g. ecc-k8s-066) to '
+        'build the report only for this rule',
+    )
+
+
 class ResourceReportJobsGetModel(
     TimeRangedMixin, JobTypesMixin, ReportPaginationModel
 ):
