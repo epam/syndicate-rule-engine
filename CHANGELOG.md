@@ -12,12 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the ability to configure `SRE_CORS_ALLOWED_ORIGINS` via Helm chart values (`corsAllowedOrigins`)
 - Added the `Strict-Transport-Security` response header (default `max-age=31536000; includeSubDomains`). It can be changed or disabled (empty value `''`) via `SRE_HSTS_HEADER` / Helm `hstsHeader`
 - Added Kubernetes RBAC ("who can do what") report endpoints that return an Excel report:
-  - `GET /reports/rbac/platforms/k8s/{platform_id}/detailed/latest` returns the latest complete report for a platform
-  - `GET /reports/rbac/detailed/jobs/{job_id}` returns the report for a specific platform scan
+  - `GET /reports/rbac/platforms/k8s/{platform_id}/detailed/latest` - returns the latest complete report for a platform
+  - `GET /reports/rbac/detailed/jobs/{job_id}` - returns the report for a specific platform scan
 - Added Kubernetes RBAC Single Pane of Glass report endpoints that return a subject-level summary workbook:
-  - `GET /reports/rbac/platforms/k8s/{platform_id}/summary/latest` returns the latest complete report for a platform
-  - `GET /reports/rbac/summary/jobs/{job_id}` returns the report for a specific platform scan
+  - `GET /reports/rbac/platforms/k8s/{platform_id}/summary/latest` - returns the latest complete report for a platform
+  - `GET /reports/rbac/summary/jobs/{job_id}` - returns the report for a specific platform scan
 - Added `k8s.cluster-role` aggregation annotations (`c7n:aggregated-into`, `c7n:aggregated-from`) to the custom Cloud Custodian plugins
+- Added Kubernetes workloads rule-level endpoints for reports that list violated pods with their immediate owners, one sheet per rule:
+  - `GET /reports/workloads/platforms/k8s/{platform_id}/detailed/latest` - returns the latest complete report for a platform
+  - `GET /reports/workloads/detailed/jobs/{job_id}` - returns the report for a specific platform scan
+- Added Kubernetes workloads rule-level endpoints for reports that list all unique violated workloads in one sheet with the titles of the pod rules they violate:
+  - `GET /reports/workloads/platforms/k8s/{platform_id}/summary/latest` - returns the latest complete report for a platform
+  - `GET /reports/workloads/summary/jobs/{job_id}` - returns the report for a specific platform scan
 
 ### Fixed
 - Improved the questionnaire report error for standards unavailable to the selected job or tenant; the message now points to the standards listing command

@@ -18,6 +18,7 @@ from .rbac_report_handler import RbacReportHandler
 from .report_status_handler import ReportStatusHandlerHandler
 from .resource_report_handler import ResourceReportHandler
 from .rules_handler import JobsRulesHandler
+from .workloads_report_handler import WorkloadsReportHandler
 
 
 __all__ = (
@@ -35,4 +36,5 @@ __all__ = (
     "HighLevelReportsHandler",
     "ReportStatusHandlerHandler",
     "SiemPushHandler",
+    "WorkloadsReportHandler",
 )

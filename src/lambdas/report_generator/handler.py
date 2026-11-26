@@ -14,6 +14,7 @@ from handlers.reports import (
     RbacReportHandler,
     ResourceReportHandler,
     SiemPushHandler,
+    WorkloadsReportHandler,
 )
 from handlers.reports.top_violations_report_handler import TopViolationsReportHandler
 from helpers.log_helper import get_logger
@@ -45,6 +46,7 @@ class ReportGenerator(ApiEventProcessorLambdaHandler):
         QuestionnaireHandler,
         ResourceReportHandler,
         RbacReportHandler,
+        WorkloadsReportHandler,
         JobsRulesHandler,
         DetailedReportHandler,
         DigestReportHandler,

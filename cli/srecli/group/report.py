@@ -20,6 +20,7 @@ from srecli.group.report_questionnaire import questionnaire
 from srecli.group.report_raw import raw
 from srecli.group.report_rbac import rbac
 from srecli.group.report_resource import resource
+from srecli.group.report_workloads import workloads
 from srecli.group.report_rules import rules
 
 
@@ -226,3 +227,4 @@ report.add_command(resource)
 report.add_command(findings)
 report.add_command(raw)
 report.add_command(rbac)
+report.add_command(workloads)

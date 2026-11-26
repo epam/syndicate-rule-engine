@@ -54,6 +54,7 @@ from validators.swagger_request_models import (
     PlatformK8SPutModel,
     PlatformK8sQueryModel,
     PlatformK8sRbacReportGetModel,
+    PlatformK8sWorkloadsReportGetModel,
     PlatformK8sResourcesGetModel,
     PlatformK8sResourcesReportGetModel,
     PolicyPatchModel,
@@ -122,6 +123,7 @@ from validators.swagger_response_models import (
     EventModel,
     JobResourcesReportModel,
     K8sRbacReportModel,
+    K8sWorkloadsReportModel,
     MessageModel,
     MultipleChronicleModel,
     MultipleCredentialsModel,
@@ -1345,6 +1347,49 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_JOB,
         description='Allows to get the Kubernetes RBAC single pane of glass '
         'report for a specific scan job. Returns a URL to an xlsx file',
+    ),
+    # workloads reports
+    EndpointInfo(
+        path=Endpoint.REPORTS_WORKLOADS_DETAILED_LATEST,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sWorkloadsReportGetModel,
+        responses=[(HTTPStatus.OK, K8sWorkloadsReportModel, None)],
+        permission=Permission.REPORT_WORKLOADS_GET_K8S_PLATFORM_LATEST,
+        description='Allows to get the latest detailed Kubernetes workloads '
+        'report by platform: violated pods of each pod rule with their '
+        'owners and matched filters. Returns a URL to an xlsx file',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_WORKLOADS_DETAILED_JOB,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sWorkloadsReportGetModel,
+        responses=[(HTTPStatus.OK, K8sWorkloadsReportModel, None)],
+        permission=Permission.REPORT_WORKLOADS_GET_K8S_PLATFORM_JOB,
+        description='Allows to get the detailed Kubernetes workloads report '
+        'for a specific platform scan job. Returns a URL to an xlsx file',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_WORKLOADS_SUMMARY_LATEST,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sWorkloadsReportGetModel,
+        responses=[(HTTPStatus.OK, K8sWorkloadsReportModel, None)],
+        permission=Permission.REPORT_WORKLOADS_GET_K8S_PLATFORM_LATEST,
+        description='Allows to get the latest summary Kubernetes workloads '
+        'report by platform: unique workloads with violated pods of each pod '
+        'rule. Returns a URL to an xlsx file',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_WORKLOADS_SUMMARY_JOB,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sWorkloadsReportGetModel,
+        responses=[(HTTPStatus.OK, K8sWorkloadsReportModel, None)],
+        permission=Permission.REPORT_WORKLOADS_GET_K8S_PLATFORM_JOB,
+        description='Allows to get the summary Kubernetes workloads report '
+        'for a specific platform scan job. Returns a URL to an xlsx file',
     ),
     EndpointInfo(
         path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,

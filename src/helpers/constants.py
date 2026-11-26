@@ -178,6 +178,16 @@ class Endpoint(str, Enum):
         '/reports/rbac/platforms/k8s/{platform_id}/summary/latest'
     )
     REPORTS_RBAC_SUMMARY_JOB = '/reports/rbac/summary/jobs/{job_id}'
+    REPORTS_WORKLOADS_DETAILED_LATEST = (
+        '/reports/workloads/platforms/k8s/{platform_id}/detailed/latest'
+    )
+    REPORTS_WORKLOADS_DETAILED_JOB = (
+        '/reports/workloads/detailed/jobs/{job_id}'
+    )
+    REPORTS_WORKLOADS_SUMMARY_LATEST = (
+        '/reports/workloads/platforms/k8s/{platform_id}/summary/latest'
+    )
+    REPORTS_WORKLOADS_SUMMARY_JOB = '/reports/workloads/summary/jobs/{job_id}'
     REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
         '/reports/top/violations/jobs/{job_id}'
     )
@@ -937,6 +947,16 @@ class Permission(str, Enum):
     )
     REPORT_RBAC_GET_K8S_PLATFORM_JOB = (
         'report:get_k8s_platform_job_rbac',
+        False,
+        True,
+    )
+    REPORT_WORKLOADS_GET_K8S_PLATFORM_LATEST = (
+        'report:get_k8s_platform_latest_workloads',
+        False,
+        True,
+    )
+    REPORT_WORKLOADS_GET_K8S_PLATFORM_JOB = (
+        'report:get_k8s_platform_job_workloads',
         False,
         True,
     )
