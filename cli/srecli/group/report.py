@@ -18,6 +18,7 @@ from srecli.group.report_findings import findings
 from srecli.group.report_push import push
 from srecli.group.report_questionnaire import questionnaire
 from srecli.group.report_raw import raw
+from srecli.group.report_rbac import rbac
 from srecli.group.report_resource import resource
 from srecli.group.report_rules import rules
 
@@ -224,3 +225,4 @@ report.add_command(push)
 report.add_command(resource)
 report.add_command(findings)
 report.add_command(raw)
+report.add_command(rbac)

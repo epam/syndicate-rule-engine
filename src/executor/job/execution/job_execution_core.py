@@ -21,7 +21,7 @@ from executor.job.execution.region_executor import (
     job_initializer,
     process_job_concurrent,
 )
-from executor.job.job_failure import JobFailure, JobErrorCode
+from executor.job.job_failure import JobErrorCode, JobFailure
 from executor.job.scan import (
     FailedPoliciesMap,
     ScanCheckpoint,
@@ -36,7 +36,10 @@ from helpers.log_helper import get_logger
 from helpers.time_helper import utc_iso
 from services import SP
 from services.job_policy_filters.types import BundleFilters
-from services.reports_bucket import ReportsBucketKeysBuilder
+from services.reports_bucket import (
+    PlatformReportsBucketKeysBuilder,
+    ReportsBucketKeysBuilder,
+)
 
 _LOG = get_logger(__name__)
 
@@ -230,6 +233,7 @@ def finalize_job_scan(
     warnings: list[str],
     failed: FailedPoliciesMap,
     completed_regions: set[str],
+    rbac_snapshot_ready: bool = False,
 ) -> None:
     job = ctx.job
     ctx.add_warnings(*warnings)
@@ -277,3 +281,21 @@ def finalize_job_scan(
         raise JobExecutionError(
             build_failure_for_zero_success(failed)
         )
+
+    if (
+        rbac_snapshot_ready
+        and completed_regions == regions
+        and isinstance(keys_builder, PlatformReportsBucketKeysBuilder)
+    ):
+        try:
+            SP.s3.gz_put_json(
+                bucket=bucket,
+                key=keys_builder.latest_rbac_manifest_key(),
+                obj={'job_id': job.id, 'published_at': utc_iso()},
+            )
+        except Exception:
+            _LOG.exception(
+                'Could not publish latest RBAC pair for platform %s',
+                job.platform_id,
+            )
+            ctx.add_warnings('Could not publish latest RBAC report pair')

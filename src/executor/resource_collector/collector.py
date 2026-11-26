@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import tempfile
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Generator
 from typing_extensions import Self
@@ -52,6 +53,8 @@ if TYPE_CHECKING:
 
 _LOG = get_logger(__name__)
 
+ResourcesCallback = Callable[[str, list[dict]], None]
+
 
 @dataclass
 class ScanRegionResult:
@@ -89,6 +92,13 @@ def _scan_region_in_subprocess(
     from c7n_gcp.resources.resource_map import ResourceMap as GCPResourceMap
     from c7n_kube.resources.resource_map import ResourceMap as K8sResourceMap
     from executor.job import PoliciesLoader, PolicyDict, Runner
+
+    if Env.ENABLE_CUSTOM_CC_PLUGINS.is_set():
+        # custom resources (e.g. k8s.role-binding) exist in ResourceMap only
+        # after registration, so it must happen before the scope is built
+        from executor.plugins import register_all
+
+        register_all()
 
     work_path = Path(work_dir)
     successful = 0
@@ -174,10 +184,13 @@ class ScanResult:
         self._cloud = cloud
         self._res_decoder = msgspec.json.Decoder(type=list[dict])
 
-    def iter_resources(self) -> Generator[tuple[str, str, list[dict]], None, None]:
+    def iter_resources(
+        self, include_empty: bool = False
+    ) -> Generator[tuple[str, str, list[dict]], None, None]:
         """
         Yields (region, resource_type, resources) tuples.
-        Skips policies with no resources.
+        Successful policies with no resources are skipped unless
+        include_empty is set.
         """
         if not self._work_dir.exists():
             return
@@ -196,7 +209,7 @@ class ScanResult:
                     _LOG.exception(f"Failed to read {resources_file}")
                     continue
 
-                if not resources:
+                if not resources and not include_empty:
                     continue
 
                 # Extract resource type from policy name (collect-{resource_type})
@@ -333,11 +346,14 @@ class CustodianResourceCollector(BaseResourceCollector):
         cloud: Cloud,
         work_dir: Path,
         platform: Platform | None = None,
+        on_resources: ResourcesCallback | None = None,
     ) -> int:
         """
         Read scan results from files and save to MongoDB.
         Runs in MAIN process - safe MongoDB operations.
         Returns count of saved resources.
+        :param on_resources: called with (resource type, resources) for
+        every successfully scanned resource type before it is saved
         """
         platform_id = platform.id if platform else None
         # for k8s platforms the platform id plays the role of an account id
@@ -351,7 +367,18 @@ class CustodianResourceCollector(BaseResourceCollector):
             _LOG.warning(f"No resource iterator for cloud {cloud}")
             return 0
 
-        for region, resource_type, resources in scan_result.iter_resources():
+        # a platform type is replaced as a whole, so an empty successful
+        # result must clear its stale resources (and is a valid snapshot)
+        it = scan_result.iter_resources(include_empty=platform is not None)
+        for region, resource_type, resources in it:
+            if on_resources is not None:
+                try:
+                    on_resources(resource_type, resources)
+                except Exception:
+                    _LOG.exception(
+                        f'Resources callback failed for {resource_type}'
+                    )
+
             try:
                 # Remove old resources
                 if platform_id:
@@ -451,11 +478,12 @@ class CustodianResourceCollector(BaseResourceCollector):
             return None
         return {ENV_KUBECONFIG: str(config.to_temp_file())}
 
-    def _collect_platform(
+    def collect_platform(
         self,
         tenant: Tenant,
         platform: Platform,
-        resource_types: tuple[str, ...] | None,
+        resource_types: tuple[str, ...] | None = None,
+        on_resources: ResourcesCallback | None = None,
     ) -> int:
         """
         Collects the inventory of one k8s platform. Kubernetes has no regions
@@ -492,6 +520,7 @@ class CustodianResourceCollector(BaseResourceCollector):
                     cloud=Cloud.KUBERNETES,
                     work_dir=work_path,
                     platform=platform,
+                    on_resources=on_resources,
                 )
         finally:
             if kubeconfig:
@@ -538,7 +567,7 @@ class CustodianResourceCollector(BaseResourceCollector):
         failed: list[str] = []
         for platform in ps.query_by_tenant(tenant):
             try:
-                saved = self._collect_platform(
+                saved = self.collect_platform(
                     tenant=tenant,
                     platform=platform,
                     resource_types=types,
