@@ -9,6 +9,7 @@ from srecli.group import (
     cli_response,
 )
 from srecli.service.presigned_hints_pack import presigned_url_hints_pack
+from srecli.service.constants import AWS, AZURE, GOOGLE, KUBERNETES
 
 
 @click.group(name='questionnaire')
@@ -69,3 +70,26 @@ def accumulated(
         customer_id=customer_id,
     )
 
+
+@questionnaire.command(cls=ViewCommand, name='standards')
+@click.option(
+    'domains',
+    '--domain',
+    '-d',
+    type=click.Choice((AWS, AZURE, GOOGLE, KUBERNETES)),
+    multiple=True,
+    help='Filter by cloud/platform domain. Repeat to select multiple domains.',
+)
+@cli_response()
+def standards(
+    ctx: ContextObj,
+    domains: tuple[str],
+    customer_id: str | None,
+) -> SREResponse:
+    """
+    Lists standards available for questionnaire reports by domain
+    """
+    return ctx['api_client'].report_questionnaire_standards(
+        domains=','.join(domains) if domains else None,
+        customer_id=customer_id,
+    )

@@ -89,8 +89,26 @@ class BasePaginationModel(BaseModel):
     @field_validator('next_token', mode='after')
     @classmethod
     def _validate_next_token(cls, next_token):
-        NextToken.deserialize(next_token)
+        decoded = NextToken.deserialize(next_token)
+        if not next_token or not decoded.value:
+            return next_token
+
+        if not isinstance(decoded.value, int):
+            raise ValueError(
+                'Failed to deserialize next_token: invalid or malformed token.'
+            )
         return next_token
+
+
+class ReportPaginationModel(BasePaginationModel):
+    """
+    Pagination over jobs for multi-job reports. Each job's report can be
+    large, so the default page size is smaller than for plain listings
+    """
+
+    limit: int = Field(
+        10, ge=1, le=50, description='Max number of jobs to process'
+    )
 
 
 class TimeRangedMixin:
@@ -1612,7 +1630,9 @@ class JobFindingsReportGetModel(BaseModel):
     obfuscated: bool = False
 
 
-class TenantJobsFindingsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class TenantJobsFindingsReportGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
     href: bool = False
@@ -1630,7 +1650,9 @@ class JobDetailsReportGetModel(BaseModel):
     obfuscated: bool = False
 
 
-class TenantJobsDetailsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class TenantJobsDetailsReportGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
     href: bool = False
@@ -1641,9 +1663,12 @@ class JobDigestReportGetModel(BaseModel):
     pass
 
 
-class TenantJobsDigestsReportGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class TenantJobsDigestsReportGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     start_iso: datetime | date = Field(None, alias='from')
     end_iso: datetime | date = Field(None, alias='to')
+    href: bool = False
 
 
 class JobComplianceReportGetModel(BaseModel):
@@ -1668,6 +1693,20 @@ class TenantQuestionnaireReportGetModel(BaseModel):
         description='Full name of the standard as it is returned by the '
         'compliance report, i.e. "CIS Controls v7"'
     )
+
+
+class QuestionnaireStandardsGetModel(BaseModel):
+    domains: set[Literal['AWS', 'AZURE', 'GOOGLE', 'KUBERNETES']] = Field(
+        default_factory=set,
+        description='Filter standards by one or more cloud/platform domains',
+    )
+
+    @field_validator('domains', mode='before')
+    @classmethod
+    def split_domains(cls, value):
+        if isinstance(value, str):
+            return value.split(',')
+        return value
 
 
 class JobErrorReportGetModel(BaseModel):
@@ -2050,7 +2089,13 @@ class PlatformK8sResourcesReportGetModel(BaseModel):
     # They are not declared
 
 
-class ResourceReportJobsGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
+class PlatformK8sRbacReportGetModel(BaseModel):
+    pass
+
+
+class ResourceReportJobsGetModel(
+    TimeRangedMixin, JobTypesMixin, ReportPaginationModel
+):
     model_config = ConfigDict(extra='allow')
 
     start_iso: datetime | date = Field(None, alias='from')
@@ -2063,6 +2108,7 @@ class ResourceReportJobsGetModel(TimeRangedMixin, JobTypesMixin, BaseModel):
     full: bool = False
     exact_match: bool = True
     search_by_all: bool = False
+    href: bool = False
 
     @field_validator('region', mode='before')
     def _(cls, v: str) -> str:

@@ -54,10 +54,13 @@ from validators.swagger_request_models import (
     PlatformK8SPostModel,
     PlatformK8SPutModel,
     PlatformK8sQueryModel,
+    PlatformK8sRbacReportGetModel,
+    PlatformK8sResourcesGetModel,
     PlatformK8sResourcesReportGetModel,
     PolicyPatchModel,
     PolicyPostModel,
     ProjectGetReportModel,
+    QuestionnaireStandardsGetModel,
     RabbitMQDeleteModel,
     RabbitMQGetModel,
     RabbitMQPostModel,
@@ -73,7 +76,6 @@ from validators.swagger_request_models import (
     ResourcesArnGetModel,
     ResourcesExceptionsGetModel,
     ResourcesExceptionsPostModel,
-    PlatformK8sResourcesGetModel,
     ResourcesGetModel,
     ResourcesReportGetModel,
     RolePatchModel,
@@ -120,6 +122,7 @@ from validators.swagger_response_models import (
     ErrorsReportModel,
     EventModel,
     JobResourcesReportModel,
+    K8sRbacReportModel,
     MessageModel,
     MultipleChronicleModel,
     MultipleCredentialsModel,
@@ -145,6 +148,7 @@ from validators.swagger_response_models import (
     MultipleServiceOperationStatusesModel,
     MultipleTenantsModel,
     MultipleUsersModel,
+    QuestionnaireStandardsReportModel,
     RawReportModel,
     RulesReportModel,
     SignInModel,
@@ -181,6 +185,7 @@ from validators.swagger_response_models import (
     SingleTenantExcludedRules,
     SingleTenantsModel,
     SingleUserModel,
+    TenantJobsResourcesReportModel,
     TopViolationsReportComparisonModel,
     TopViolationsReportJobsModel,
 )
@@ -1186,6 +1191,15 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.REPORT_QUESTIONNAIRE_DESCRIBE_TENANT,
         description='Allows to get a standard questionnaire xlsx by a tenant',
     ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_QUESTIONNAIRE_STANDARDS,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=QuestionnaireStandardsGetModel,
+        responses=[(HTTPStatus.OK, QuestionnaireStandardsReportModel, None)],
+        permission=Permission.REPORT_QUESTIONNAIRE_LIST_STANDARDS,
+        description='Allows to list standards available for questionnaire reports',
+    ),
     # errors report
     EndpointInfo(
         path=Endpoint.REPORTS_ERRORS_JOBS_JOB_ID,
@@ -1300,6 +1314,49 @@ data: tuple[EndpointInfo, ...] = (
         permission=Permission.REPORT_RESOURCES_GET_K8S_PLATFORM_LATEST,
         description='Allows to get latest resources report by K8S platform',
     ),
+    # rbac reports
+    EndpointInfo(
+        path=Endpoint.REPORTS_RBAC_DETAILED_LATEST,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sRbacReportGetModel,
+        responses=[(HTTPStatus.OK, K8sRbacReportModel, None)],
+        permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_LATEST,
+        description='Allows to get latest RBAC "who can do what" report '
+        'by K8S platform: subjects, their pods and permissions granted by '
+        'roles that violate rules, grouped by CIS control. Returns a URL to '
+        'an xlsx file',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_RBAC_DETAILED_JOB,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sRbacReportGetModel,
+        responses=[(HTTPStatus.OK, K8sRbacReportModel, None)],
+        permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_JOB,
+        description='Allows to get the K8s RBAC report for a specific scan '
+        'job. Returns a URL to an xlsx file',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_RBAC_SUMMARY_LATEST,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sRbacReportGetModel,
+        responses=[(HTTPStatus.OK, K8sRbacReportModel, None)],
+        permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_LATEST,
+        description='Allows to get the latest Kubernetes RBAC single pane '
+        'of glass report by platform. Returns a URL to an xlsx file',
+    ),
+    EndpointInfo(
+        path=Endpoint.REPORTS_RBAC_SUMMARY_JOB,
+        method=HTTPMethod.GET,
+        lambda_name=LambdaName.REPORT_GENERATOR,
+        request_model=PlatformK8sRbacReportGetModel,
+        responses=[(HTTPStatus.OK, K8sRbacReportModel, None)],
+        permission=Permission.REPORT_RBAC_GET_K8S_PLATFORM_JOB,
+        description='Allows to get the Kubernetes RBAC single pane of glass '
+        'report for a specific scan job. Returns a URL to an xlsx file',
+    ),
     EndpointInfo(
         path=Endpoint.REPORTS_RESOURCES_TENANTS_TENANT_NAME_LATEST,
         method=HTTPMethod.GET,
@@ -1314,7 +1371,7 @@ data: tuple[EndpointInfo, ...] = (
         method=HTTPMethod.GET,
         lambda_name=LambdaName.REPORT_GENERATOR,
         request_model=ResourceReportJobsGetModel,
-        responses=[(HTTPStatus.OK, JobResourcesReportModel, None)],
+        responses=[(HTTPStatus.OK, TenantJobsResourcesReportModel, None)],
         permission=Permission.REPORT_RESOURCES_GET_JOBS_BATCH,
         description='Allows to get latest resources report by latest tenant jobs',
     ),
@@ -1718,10 +1775,16 @@ common_responses = (
     (HTTPStatus.UNAUTHORIZED, MessageModel, 'Invalid credentials'),
     (HTTPStatus.FORBIDDEN, MessageModel, 'Cannot access the resource'),
     (HTTPStatus.INTERNAL_SERVER_ERROR, MessageModel, 'Server error'),
-    (HTTPStatus.SERVICE_UNAVAILABLE, MessageModel,
-     'Service is temporarily unavailable'),
-    (HTTPStatus.GATEWAY_TIMEOUT, MessageModel,
-     'Gateway 30s timeout is reached')
+    (
+        HTTPStatus.SERVICE_UNAVAILABLE,
+        MessageModel,
+        'Service is temporarily unavailable',
+    ),
+    (
+        HTTPStatus.GATEWAY_TIMEOUT,
+        MessageModel,
+        'Gateway 30s timeout is reached',
+    ),
 )
 
 

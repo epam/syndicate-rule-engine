@@ -52,7 +52,9 @@ def k8s(
     events_file: str,
     customer_id: str,
 ) -> SREResponse:
-    """Send SRE_K8S_AGENT events to POST /event (event-driven ingest)."""
+    """
+    Send SRE_K8S_AGENT events to POST /event (event-driven ingest)
+    """
     return ctx['api_client'].event_action(
         version='1.0.0',
         vendor='SRE_K8S_AGENT',

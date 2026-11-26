@@ -58,7 +58,7 @@ CASE_TEMPLATE = """### {name}
 """
 
 LOG_NOT_ALLOWED_TO_EXECUTE_STEP = (
-    'The steps if not allowed to be executed. '
+    'The step is not allowed to be executed. '
     'Some previous steps have not succeeded'
 )
 

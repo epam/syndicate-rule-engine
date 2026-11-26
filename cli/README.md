@@ -49,6 +49,15 @@ The password is requested interactively if `--password` is omitted. Other basic 
 
 Run `sre --help` or `sre <group> --help` to see the commands and options available in your version.
 
+Use `sre report questionnaire standards` to list the questionnaire standards
+and versions available to the configured customer, grouped by cloud or
+platform domain. If a requested standard is not compatible with a job or
+tenant, the report error points to this command. Use `--domain` to filter to
+one or more domains:
+
+    sre report questionnaire standards --domain AWS
+    sre report questionnaire standards --domain AWS --domain KUBERNETES
+
 ## Commands reference
 
 The full description of all the commands, their parameters and examples is in

@@ -965,6 +965,10 @@ exception_expire_at_required_option = build_iso_date_option(
 )
 
 limit_option = build_limit_option()
+report_limit_option = build_limit_option(
+    type=click.IntRange(min=1, max=20),
+    help='Number of jobs to show',
+)
 next_option = click.option('--next_token', '-nt', type=str, required=False,
                            help='Token to start record-pagination from')
 

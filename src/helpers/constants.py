@@ -145,6 +145,7 @@ class Endpoint(str, Enum):
     REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME = (
         '/reports/questionnaire/tenants/{tenant_name}'
     )
+    REPORTS_QUESTIONNAIRE_STANDARDS = '/reports/questionnaire/standards'
     INTEGRATIONS_DEFECT_DOJO_ID_ACTIVATION = (
         '/integrations/defect-dojo/{id}/activation'
     )
@@ -172,6 +173,14 @@ class Endpoint(str, Enum):
     REPORTS_RESOURCES_PLATFORMS_K8S_PLATFORM_ID_LATEST = (
         '/reports/resources/platforms/k8s/{platform_id}/state/latest'
     )
+    REPORTS_RBAC_DETAILED_LATEST = (
+        '/reports/rbac/platforms/k8s/{platform_id}/detailed/latest'
+    )
+    REPORTS_RBAC_DETAILED_JOB = '/reports/rbac/detailed/jobs/{job_id}'
+    REPORTS_RBAC_SUMMARY_LATEST = (
+        '/reports/rbac/platforms/k8s/{platform_id}/summary/latest'
+    )
+    REPORTS_RBAC_SUMMARY_JOB = '/reports/rbac/summary/jobs/{job_id}'
     REPORTS_TOP_VIOLATIONS_JOBS_JOB_ID = (
         '/reports/top/violations/jobs/{job_id}'
     )
@@ -555,6 +564,14 @@ class Env(EnvEnum):
         DEFAULT_SYSTEM_CUSTOMER,
     )
     LOG_LEVEL = 'SRE_LOG_LEVEL', ('CAAS_LOG_LEVEL',), 'INFO'
+    CORS_ALLOWED_ORIGINS = 'SRE_CORS_ALLOWED_ORIGINS', ()
+    # value of the Strict-Transport-Security response header. Set to an
+    # empty string '' to disable the header
+    HSTS_HEADER = (
+        'SRE_HSTS_HEADER',
+        (),
+        'max-age=31536000; includeSubDomains',
+    )
     EXECUTOR_LOGS_FILENAME = 'SRE_EXECUTOR_LOGS_FILENAME', ()
 
     # buckets
@@ -898,6 +915,11 @@ class Permission(str, Enum):
         False,
         True,
     )
+    REPORT_QUESTIONNAIRE_LIST_STANDARDS = (
+        'report:list_questionnaire_standards',
+        False,
+        True,
+    )
     REPORT_ERRORS_DESCRIBE = 'report:get_job_errors', False, True
     REPORT_RULES_DESCRIBE_JOB = 'report:get_job_rules', False, True
     REPORT_RULES_DESCRIBE_TENANT = 'report:get_tenant_rules', False, True
@@ -908,6 +930,16 @@ class Permission(str, Enum):
     )
     REPORT_RESOURCES_GET_K8S_PLATFORM_LATEST = (
         'report:get_k8s_platform_latest_resources',
+        False,
+        True,
+    )
+    REPORT_RBAC_GET_K8S_PLATFORM_LATEST = (
+        'report:get_k8s_platform_latest_rbac',
+        False,
+        True,
+    )
+    REPORT_RBAC_GET_K8S_PLATFORM_JOB = (
+        'report:get_k8s_platform_job_rbac',
         False,
         True,
     )
@@ -1613,15 +1645,30 @@ EXCLUDE_RESOURCE_TYPES = {
     'k8s.secret',  # do not persist secret material in the inventory
 }
 
+# K8s resource types captured in each platform scan's RBAC inventory snapshot.
+# Roles and bindings are required to resolve subjects; pods and replica sets
+# only enrich ServiceAccount subjects with workloads.
+K8S_RBAC_REQUIRED_RESOURCE_TYPES = (
+    'k8s.role',
+    'k8s.cluster-role',
+    'k8s.role-binding',
+    'k8s.cluster-role-binding',
+)
+K8S_RBAC_OPTIONAL_RESOURCE_TYPES = (
+    'k8s.pod',
+    'k8s.replica-set',  # to resolve pod -> deployment
+)
+K8S_RBAC_RESOURCE_TYPES = (
+    *K8S_RBAC_REQUIRED_RESOURCE_TYPES,
+    *K8S_RBAC_OPTIONAL_RESOURCE_TYPES,
+)
+
 
 class ResourcesCollectorType(str, Enum):
     AWS_RESOURCE_EXPLORER = 'aws_resource_explorer'
     AZURE_RESOURCE_GRAPH = 'azure_resource_graph'
     FOCUS = 'focus'
     CUSTODIAN = 'cloud_custodian'
-
-
-DEPRECATED_RULE_SUFFIX = '-deprecated'
 
 
 class ResourceExceptionType(str, Enum):

@@ -36,14 +36,23 @@ def create_resources_indexes(db: Database) -> tuple[str, ...]:
             name=name2,
         )
 
-    name3 = 'p_1_rt_1_i_1'
+    # covers the aggregation that counts resources per type and location
+    # for metrics collection: the query is resolved using index keys only
+    name3 = 'cn_1_tn_1_rt_1_l_1'
     if name3 not in indexes:
         _LOG.info(f'Index {name3} does not exist yet')
         collection.create_index(
-            [('p', 1), ('rt', 1), ('i', 1)], name=name3, sparse=True
+            [('cn', 1), ('tn', 1), ('rt', 1), ('l', 1)], name=name3
         )
 
-    return name1, name2, name3
+    name4 = 'p_1_rt_1_i_1'
+    if name4 not in indexes:
+        _LOG.info(f'Index {name4} does not exist yet')
+        collection.create_index(
+            [('p', 1), ('rt', 1), ('i', 1)], name=name4, sparse=True
+        )
+
+    return name1, name2, name3, name4
 
 
 class ResourceARNIndex(GlobalSecondaryIndex):

@@ -2,8 +2,8 @@ databaseName: syndicate_rule_engine
 mongoUri:
 innerCacheTTLSeconds: '300'
 workers: 2
-memoryLimit: 768Mi
-memoryRequest: 128Mi
+memoryLimit: 2Gi # temporary limit
+memoryRequest: 256Mi
 
 service:
   type: ClusterIP
@@ -12,7 +12,7 @@ service:
 
 image:
   repository: public.ecr.aws/x4s4z8e1/syndicate/rule-engine
-  tag: 5.21.0
+  tag: 5.22.0
   pullPolicy: Always
 
 replicas: 1
@@ -62,7 +62,7 @@ modular-api:
   modularApiM3adminLogLevel: ERROR
   modularApiModularSdkLogLevel: ERROR
   image:
-    tag: 4.4.2-rule-engine-5.21.0
+    tag: 4.4.2-rule-engine-5.22.0
 
 patch:
   enabled: false
@@ -102,8 +102,14 @@ executorCCLogLevel: ERROR
 executorLogsFilename:
 allowSimultaneousJobsForOneTenant: false
 dojoPayloadSizeLimitBytes:
-metricsExpirationDays:
+metricsExpirationDays: 90
 recommendationsBucket:
+
+# comma-separated list of origins allowed by CORS (e.g. 'https://ui.example.com,https://other.example.com'). Empty = no CORS origin header
+corsAllowedOrigins: ''
+
+# value of the Strict-Transport-Security response header. Set to '' to disable
+hstsHeader: 'max-age=31536000; includeSubDomains'
 
 # minio presigned url configuration (any value is considered as true)
 minioPresignedUrl: ''

@@ -86,7 +86,6 @@ from typing_extensions import Self
 from handlers import AbstractHandler, Mapping
 from helpers import deep_get
 from helpers.constants import (
-    DEPRECATED_RULE_SUFFIX,
     Cloud,
     Endpoint,
     HTTPMethod,
@@ -96,6 +95,7 @@ from helpers.constants import (
 from helpers.lambda_response import build_response
 from helpers.log_helper import get_logger
 from helpers.reports import Standard
+from helpers.rules import is_deprecated_rule_description
 from services import SP, modular_helpers
 from services.coverage_service import calculate_controls_coverages
 from services.job_service import JobService
@@ -106,6 +106,7 @@ from services.report_service import ReportResponse, ReportService
 from services.sharding import ShardsCollection
 from validators.swagger_request_models import (
     JobQuestionnaireReportGetModel,
+    QuestionnaireStandardsGetModel,
     TenantQuestionnaireReportGetModel,
 )
 from validators.utils import validate_kwargs
@@ -204,11 +205,6 @@ def slugify(value: str) -> str:
 def short_job_id(job_id: str) -> str:
     """Last segment of the job UUID, i.e. '...-9f2c1d4e' -> '9f2c1d4e'."""
     return job_id.rsplit('-', maxsplit=1)[-1]
-
-
-def is_deprecated_rule(rule_name: str) -> bool:
-    # TODO: update when rule deprecation logic changes
-    return rule_name.endswith(DEPRECATED_RULE_SUFFIX)
 
 
 class ReportScope(str, Enum):
@@ -1166,7 +1162,20 @@ class QuestionnaireHandler(AbstractHandler):
             Endpoint.REPORTS_QUESTIONNAIRE_TENANTS_TENANT_NAME: {
                 HTTPMethod.GET: self.get_by_tenant
             },
+            Endpoint.REPORTS_QUESTIONNAIRE_STANDARDS: {
+                HTTPMethod.GET: self.get_standards
+            },
         }
+
+    @validate_kwargs
+    def get_standards(self, event: QuestionnaireStandardsGetModel):
+        metadata = self._license_service.get_customer_metadata(
+            event.customer_id
+        )
+        domain_standards = self.standards_by_domain(metadata, event.domains)
+        return build_response(
+            content=domain_standards
+        )
 
     @validate_kwargs
     def get_by_job(self, event: JobQuestionnaireReportGetModel, job_id: str):
@@ -1205,7 +1214,11 @@ class QuestionnaireHandler(AbstractHandler):
         standard = self.resolve_standard(full_cov, event.standard)
         if standard is None:
             return build_response(
-                content=f'Standard {event.standard} not found in metadata',
+                content=self.standard_error_message(
+                    metadata=metadata,
+                    cloud=cloud,
+                    standard_name=event.standard,
+                ),
                 code=HTTPStatus.NOT_FOUND,
             )
 
@@ -1244,7 +1257,11 @@ class QuestionnaireHandler(AbstractHandler):
         standard = self.resolve_standard(full_cov, event.standard)
         if standard is None:
             return build_response(
-                content=f'Standard {event.standard} not found in metadata',
+                content=self.standard_error_message(
+                    metadata=metadata,
+                    cloud=cloud,
+                    standard_name=event.standard,
+                ),
                 code=HTTPStatus.NOT_FOUND,
             )
 
@@ -1300,8 +1317,41 @@ class QuestionnaireHandler(AbstractHandler):
         return None
 
     @staticmethod
+    def standards_by_domain(
+        metadata: Metadata, domains: set[str] | None = None
+    ) -> dict[str, list[str]]:
+        return {
+            domain: sorted(
+                (standard.full_name for standard in domain_metadata.full_cov),
+                key=str.lower,
+            )
+            for domain, domain_metadata in sorted(metadata.domains.items())
+            if domain_metadata.full_cov and (not domains or domain in domains)
+        }
+
+    @staticmethod
+    def standard_error_message(
+        metadata: Metadata, cloud: Cloud, standard_name: str
+    ) -> str:
+        domains = [
+            domain_name
+            for domain_name, domain in sorted(metadata.domains.items())
+            if QuestionnaireHandler.resolve_standard(
+                domain.full_cov, standard_name
+            )
+        ]
+        if domains:
+            return (
+                f'Standard {standard_name} is listed for '
+                f'{", ".join(domains)}, but this questionnaire report is '
+                f'for {cloud.value}. Run `sre report questionnaire standards` '
+                'to see standards grouped by domain.'
+            )
+        return f'Standard {standard_name} not found in metadata'
+
+    @staticmethod
     def build_standard_control_to_rule_names(
-        metadata: Metadata, cloud: Cloud
+        metadata: Metadata, cloud: Cloud, rule_descriptions: dict[str, str | None]
     ) -> dict:
         """
         standard name -> version -> control -> {'rules': [...],
@@ -1324,7 +1374,9 @@ class QuestionnaireHandler(AbstractHandler):
         for rule_name, rule_metadata in metadata.rules.items():
             if rule_metadata.cloud != cloud:
                 continue
-            deprecated = is_deprecated_rule(rule_name)
+            deprecated = is_deprecated_rule_description(
+                rule_descriptions.get(rule_name)
+            )
             rule_sev = rule_metadata.severity
             for standard, versions in rule_metadata.standard.items():
                 std_map = result.setdefault(standard, {})
@@ -1354,7 +1406,12 @@ class QuestionnaireHandler(AbstractHandler):
         full_controls: dict[str, CoverageControl],
     ) -> list[ControlRow]:
         control_to_rules = self.build_standard_control_to_rule_names(
-            metadata=metadata, cloud=cloud
+            metadata=metadata,
+            cloud=cloud,
+            rule_descriptions={
+                rule_name: rule_meta.get('description')
+                for rule_name, rule_meta in collection.meta.items()
+            },
         )
         successful_rules, failed_rules = set(), set()
         for part in collection.iter_parts():

@@ -57,7 +57,7 @@ def link(ctx: ContextObj, application_id: str, tenant_name: tuple[str, ...],
          all_tenants: bool, exclude_tenant: tuple[str, ...],
          customer_id: str | None):
     """
-    Links credentials to a specific set of tenants.
+    Links credentials to a specific set of tenants
     """
     if tenant_name and any((all_tenants, exclude_tenant)):
         return SREResponse.build(

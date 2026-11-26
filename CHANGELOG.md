@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.22.0] - 2026-XX-XX
+## [5.23.0] - Unreleased
+
+### Added
+- Added `GET /reports/questionnaire/standards` to list questionnaire standards and versions grouped by cloud/platform domain
+- Added the ability to configure `SRE_CORS_ALLOWED_ORIGINS` via Helm chart values (`corsAllowedOrigins`)
+- Added the `Strict-Transport-Security` response header (default `max-age=31536000; includeSubDomains`). It can be changed or disabled (empty value `''`) via `SRE_HSTS_HEADER` / Helm `hstsHeader`
+- Added Kubernetes RBAC ("who can do what") report endpoints that return an Excel report:
+  - `GET /reports/rbac/platforms/k8s/{platform_id}/detailed/latest` returns the latest complete report for a platform
+  - `GET /reports/rbac/detailed/jobs/{job_id}` returns the report for a specific platform scan
+- Added Kubernetes RBAC Single Pane of Glass report endpoints that return a subject-level summary workbook:
+  - `GET /reports/rbac/platforms/k8s/{platform_id}/summary/latest` returns the latest complete report for a platform
+  - `GET /reports/rbac/summary/jobs/{job_id}` returns the report for a specific platform scan
+- Added `k8s.cluster-role` aggregation annotations (`c7n:aggregated-into`, `c7n:aggregated-from`) to the custom Cloud Custodian plugins
+- Added a Kubernetes Control Plane findings report for platform scan jobs:
+  - `GET /reports/findings/jobs/{job_id}/control-plane`
+
+### Fixed
+- Improved the questionnaire report error for standards unavailable to the selected job or tenant; the message now points to the standards listing command
+- Fixed tenant describe responses to return cloud-native region names
+- Fixed too permissive CORS origins security issue
+- Fixed API pod OOM kills caused by every Gunicorn worker importing all Cloud Custodian providers (~200MB each) on its first report request. Providers are now preloaded once in the Gunicorn master and shared by workers
+- Fixed submission of duplicate jobs for the same tenant regions or K8s platform: the job lock is now acquired at submission instead of at job start
+
+### Changed
+- Show per-license results for `metadata_update` operation status, including each license key, update state, and start time
+
+## [5.22.0] - 2026-11-04
 
 ### Added
 - Added support for extended domain coverage metadata in `tech_cov` and `full_cov`, including control titles and section hierarchy in questionnaire reports
@@ -14,19 +40,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GET /reports/compliance/tenants/{tenant_name}`
 - Added Kubernetes resources inventory collection: the inventory of each registered K8S
   platform is now collected alongside tenants' cloud resources by the resource collector
-- Added the `sre report dashboard` CLI command to generate an Excel dashboard for a scan job or tenant
+- Added the `sre report dashboard jobs` CLI command to generate an Excel dashboard for a scan job or tenant
 - Added a new endpoint `GET /platforms/k8s/{platform_id}/resources` that returns the
   collected inventory of a K8S platform (permission `platform_resources:get`).
   It is the only way to query K8S resources: `GET /resources` accepts no
   `platform_id`/`namespace` filters because those are indexed per platform
 - Added the ability to configure `SRE_CELERY_PROCESS_PERIODIC_RULES_SCHEDULE` via Helm chart values
-- Added a Kubernetes Control Plane findings report for platform scan jobs:
-  - `GET /reports/findings/jobs/{job_id}/control-plane`
+- Added pagination to tenant-level job reports (digests, details, findings, and resources) using `limit` and `next_token`
+- Added `--href` support to digest and resource reports to return presigned JSON download URLs per job
 
 ### Fixed
 - Fixed the request validation for `POST /reports/push/dojo` endpoint
 
 ### Changed
+- Deprecated rules now keep their rule IDs and are identified by a `[DEPRECATED]` description prefix in reports and metrics
 - Added a report type suffix to presigned report download filenames
 - Updated versions of dependencies:
     - `boto3` from `~=1.43.3` to `~=1.43.78`
@@ -44,6 +71,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `pydantic` from `~=2.13.4` to `~=2.13.5`
     - `requests` from `~=2.33.1` to `~=2.34.2`
 - Use dashes instead of underscores in main.py arguments
+- Improve `next_token` field validation to prevent 500 response status code
+
+## [5.21.3] - 2026-10-15
+
+### Changed
+- Restored `metricsExpirationDays` helm value to 90 days to avoid expired metrics collection
+- Optimized `SREJobs` collection queries during metrics update task
+- Divided expired metrics deletion into batches
+- Raised `mongo` and `minio` helm chart memory and disk limits to avoid OOM and disk pressure issues
+
+## [5.21.2] - 2026-10-09
+
+### Fixed
+- Reduced the MongoDB disk I/O produced by the scheduled `collect_metrics` task, which could saturate disk I/O on the node
+- Fixed periodic job query to exclude tenants with unfinished jobs
+- Skip periodic job for tenants without `CUSTODIAN_ACCESS` parent
+
+
+## [5.21.1] - 2026-10-08
+
+### Fixed
+- Replaced unsupported quay.io MinIO image with public.ecr.aws mirror before migration on other service
 
 ## [5.21.0] - 2026-09-08
 

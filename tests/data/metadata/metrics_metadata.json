@@ -211,7 +211,7 @@
       "KUBERNETES",
       null
     ],
-    "ecc-aws-123-s3_test_policy-deprecated": [
+    "ecc-aws-123-s3_test_policy": [
       "testing",
       "Security",
       "Storage",
@@ -221,7 +221,7 @@
       true,
       "",
       "This rule is deprecated and will be removed",
-      "Description for ecc-aws-123-s3_test_policy-deprecated",
+      "[DEPRECATED] Description for ecc-aws-123-s3_test_policy",
       {},
       {},
       {},

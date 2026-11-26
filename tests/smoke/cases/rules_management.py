@@ -85,7 +85,10 @@ def case_for_source(
         depends_on=(rs_add_step,),
     )
     rs_delete_step = Step(
-        cmd('rulesource delete --rule_source_id $.[0].items[0].id', customer),
+        cmd(
+            'rulesource delete --rule_source_id $.[0].items[0].id --confirm',
+            customer,
+        ),
         {'$.message': Equal('Request is successful. No content returned')},
         depends_on=(rs_resolve_step,),
     )
@@ -159,7 +162,7 @@ def case_for_source(
         depends_on=(rule_describe_step,),
     )
     rule_delete_concrete_step = Step(
-        cmd('rule delete -r $.[0].items[0].name', customer),
+        cmd('rule delete -r $.[0].items[0].name --confirm', customer),
         {'$.message': Equal('Request is successful. No content returned')},
         depends_on=(rule_describe_step,),
     )
@@ -275,31 +278,31 @@ def case_for_source(
         },
     )
     ruleset_delete_step_1 = Step(
-        cmd('ruleset delete -n SMOKE -v 1', customer),
+        cmd('ruleset delete -n SMOKE -v 1 --confirm', customer),
         {
             '$.message': Equal('Request is successful. No content returned'),
         },
     )
     ruleset_delete_step_2 = Step(
-        cmd('ruleset delete -n SMOKE -v 2', customer),
+        cmd('ruleset delete -n SMOKE -v 2 --confirm', customer),
         {
             '$.message': Equal('Request is successful. No content returned'),
         },
     )
     ruleset_delete_step_3 = Step(
-        cmd('ruleset delete -n SMOKE -v 3', customer),
+        cmd('ruleset delete -n SMOKE -v 3 --confirm', customer),
         {
             '$.message': Equal('Request is successful. No content returned'),
         },
     )
     ruleset_delete_step_4 = Step(
-        cmd('ruleset delete -n SMOKE -v 4', customer),
+        cmd('ruleset delete -n SMOKE -v 4 --confirm', customer),
         {
             '$.message': Equal('Request is successful. No content returned'),
         },
     )
     ruleset_delete_step_5 = Step(
-        cmd('ruleset delete -n SMOKE -v 5', customer),
+        cmd('ruleset delete -n SMOKE -v 5 --confirm', customer),
         {
             '$.message': Equal('Request is successful. No content returned'),
         },

@@ -805,6 +805,8 @@ syndicate re resource describe_platform --platform_id <platform_id>
 syndicate re report resource platform_latest --platform_id <platform_id> --json
 ```
 
+Each platform scan captures an immutable snapshot of the RBAC-related Kubernetes resources alongside that job's findings. The [Kubernetes RBAC Report](#kubernetes-rbac-report) uses this scan-specific pair, so later scans or inventory refreshes do not change an earlier job's report.
+
 Platforms can also be scanned on events, see [Event-Driven Scanning](#event-driven-scanning).
 
 ## Scheduled Jobs
@@ -1078,6 +1080,45 @@ syndicate re report dashboard --tenant_name TENANT_1 --json
 
 Specify exactly one of `--job_id` or `--tenant_name`. Tenant scope uses the
 latest successful scan. The command returns a temporary download URL for the generated `.xlsx` workbook.
+
+### Kubernetes RBAC Report
+
+Shows **who can do what** in a K8S platform for each role, cluster role or binding that violates an RBAC rule in a platform scan. Findings whose rule names match after normalizing `ClusterRole` to `Role` and ignoring `_` and `-` are grouped into one table (for example, `..._in_rolebindings` and `..._in_cluster_role_bindings`). The table title joins the descriptions of all matching rules with `/`. The sheet name is the comma-separated list of the short IDs of the rules with findings in the table (for example, `ecc-k8s-001, ecc-k8s-002`, or `ecc-k8s-001` if only one matching rule has findings). Displayed rule IDs use the short `ecc-k8s-NNN` form. Each row is one subject (User, Group or ServiceAccount) combined with one rule of the role and contains:
+
+- the subject, the pods (workloads) that run under the service account, and the verbs, API groups, resources and resource names that are granted;
+- the effective namespace: the namespace of the `RoleBinding`, or `cluster-wide` for a `ClusterRoleBinding`; for an unbound Role or ClusterRole, the Role namespace or `cluster-wide`, respectively;
+- details (collapsed in Excel): the binding, the role, the namespace of the subject, pod names, and the aggregating cluster role when permissions are granted through a ClusterRole `aggregationRule`.
+
+Roles that are not bound to any subject are shown with `(not bound)`.
+
+```console
+syndicate re report rbac detailed latest --platform_id <platform_id> --json
+syndicate re report rbac detailed jobs --job_id <job_id> --json
+```
+
+`latest` returns the latest complete scan and inventory snapshot pair for the specified platform. `job` resolves the platform from the specified scan job and returns that job's pair. Each report uses findings and RBAC resources captured for the same job. The RBAC snapshot is collected only for standard (non-event-driven) scans that include RBAC rules (role, cluster role and binding rules), and only those scans update the latest pointer, after both artifacts are complete. Event-driven scans have no RBAC report: `job` returns 404 for them. RBAC snapshot collection requires the following environment variable of the executor:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SRE_ENABLE_CUSTOM_CC_PLUGINS` | not set | Enables custom Cloud Custodian resources, including `k8s.role-binding` and `k8s.cluster-role-binding`. Without it, subjects cannot be resolved |
+
+If custom plugins are disabled or roles and bindings cannot be collected, the snapshot is incomplete: the job report is not available (404) and the latest complete report remains unchanged. Pods and replica sets are optional: if they cannot be collected, the report is still built without pods and contains a warning. If a scan has no RBAC resources or bindings, the report contains a warning.
+
+The snapshot stores only the fields the report needs (names, namespaces, owners, service accounts, rules and bindings). A list that does not fit into one cell (32,767 characters) is truncated and ends with `… (+N more)`.
+
+### Kubernetes RBAC Single Pane of Glass Report
+
+The Single Pane of Glass report is a compact alternative to the detailed
+[Kubernetes RBAC Report](#kubernetes-rbac-report). It has one table with one
+row per bound subject and the columns Subject, Type, Access, Scope, and Roles.
+It includes Users, Groups, and ServiceAccounts from the scan's bindings;
+ServiceAccount names include their namespace to distinguish identities with
+the same name.
+
+```console
+syndicate re report rbac summary latest --platform_id <platform_id> --json
+syndicate re report rbac summary jobs --job_id <job_id> --json
+```
 
 Other reports, such as `details`, `findings`, `rules`, `raw` and `digests`, are available under `syndicate re report --help`.
 
@@ -1434,6 +1475,7 @@ Permission model is aligned with the API available for managing the system. This
 | GET /reports/compliance/tenants/{tenant_name} | report:get_tenant_compliance | Allows to get a compliance report by tenant |
 | GET /reports/questionnaire/jobs/{job_id} | report:get_job_questionnaire | Allows to get a standard questionnaire (xlsx) by job |
 | GET /reports/questionnaire/tenants/{tenant_name} | report:get_tenant_questionnaire | Allows to get a standard questionnaire (xlsx) by tenant |
+| GET /reports/questionnaire/standards | report:list_questionnaire_standards | Lists questionnaire standards and versions available in customer metadata, grouped by cloud/platform domain |
 | GET /reports/dashboard/jobs/{job_id} | report:get_dashboard | Generates an Excel dashboard for a scan job |
 | GET /reports/dashboard/tenants/{tenant_name} | report:get_dashboard | Generates an Excel dashboard for the latest successful tenant scan |
 | GET /reports/errors/jobs/{job_id} | report:get_job_errors | Allows to get errors occurred during a job |
@@ -1447,6 +1489,10 @@ Permission model is aligned with the API available for managing the system. This
 | POST /reports/clevel | report:post_clevel | Allows to request clevel report |
 | GET /reports/status | report:get_status | Allows to get a status of report by id |
 | GET /reports/resources/platforms/k8s/{platform_id}/state/latest | report:get_k8s_platform_latest_resources | Allows to get latest resources report by K8S platform |
+| GET /reports/rbac/platforms/k8s/{platform_id}/detailed/latest | report:get_k8s_platform_latest_rbac | Allows to get the latest RBAC ("who can do what") report by K8S platform |
+| GET /reports/rbac/detailed/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the RBAC report for a K8S platform scan job |
+| GET /reports/rbac/platforms/k8s/{platform_id}/summary/latest | report:get_k8s_platform_latest_rbac | Allows to get the latest Kubernetes RBAC summary report by platform |
+| GET /reports/rbac/summary/jobs/{job_id} | report:get_k8s_platform_job_rbac | Allows to get the Kubernetes RBAC summary report for a scan job |
 | GET /reports/resources/tenants/{tenant_name}/state/latest | report:get_tenant_latest_resources | Allows to get latest resources report by tenant |
 | GET /reports/resources/tenants/{tenant_name}/jobs | report:get_job_resources_batch | Allows to get latest resources report by latest tenant jobs |
 | GET /reports/resources/jobs/{job_id} | report:get_job_resources | Allows to get latest resources report by job |
@@ -1513,6 +1559,6 @@ The set of provisioned services and additional features depends on the selected 
 | 1.0         | June 2024     | Initial version created                                 |
 | 1.1         | July 2024     | Minor clarifications introduced across several sections |
 | 1.2         | November 2025 | Minor changes                                           |
-| 1.3         | October 2026  | Actualized for version 5.22.0                           |
+| 1.3         | October 2026  | Actualized for version 5.23.0                           |
 
 [Go to Table of Contents](#table-of-contents)

@@ -255,6 +255,7 @@ class Event(TypedDict):
 class ServiceOperationStatus(TypedDict):
     started_at: datetime
     state: str
+    license_key: NotRequired[str]
 
 
 class LicenseAllowance(TypedDict):
@@ -714,6 +715,7 @@ class SingleJobReportModel(BaseModel):
 
 class MultipleJobReportModel(BaseModel):
     items: list[BaseReportJob]
+    next_token: str | None = None
 
 
 class ControlPlaneResourceModel(BaseModel):
@@ -762,6 +764,10 @@ class SingleEntityReportModel(BaseModel):
     data: BaseReportEntity
 
 
+class QuestionnaireStandardsReportModel(BaseModel):
+    data: dict[str, list[str]]
+
+
 class ErrorsReportModel(BaseModel):
     items: list[ErrorReportItem] | None
     data: BaseReportJob | None  # if href=true
@@ -785,9 +791,23 @@ class EntityResourcesReportModel(BaseModel):
     data: BaseReportEntity | None
 
 
+class K8sRbacReportHref(BaseReportEntity):
+    job_id: str
+    warnings: NotRequired[list[str]]
+
+
+class K8sRbacReportModel(BaseModel):
+    data: K8sRbacReportHref
+
+
 class JobResourcesReportModel(BaseModel):
     items: list[ResourcesReportItem]
     data: BaseReportJob | None
+
+
+class TenantJobsResourcesReportModel(BaseModel):
+    items: list[ResourcesReportItem] | list[BaseReportJob]
+    next_token: str | None = None
 
 
 class TopViolationsReportJobsModel(BaseModel):

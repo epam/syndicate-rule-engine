@@ -123,7 +123,9 @@ def describe(
     has_secret,
     customer_id,
 ):
-    """Describes rule source"""
+    """
+    Describes rule source
+    """
     if rule_source_id:
         return ctx["api_client"].rule_source_get(
             rule_source_id, customer_id=customer_id
@@ -158,7 +160,9 @@ def add(
     description,
     customer_id,
 ):
-    """Creates rule source"""
+    """
+    Creates rule source
+    """
     return ctx["api_client"].rule_source_post(
         git_project_id=git_project_id,
         type=type,
@@ -193,7 +197,9 @@ def update(
     description,
     customer_id,
 ):
-    """Updates rule source"""
+    """
+    Updates rule source
+    """
     if not any(
         [
             git_project_id,

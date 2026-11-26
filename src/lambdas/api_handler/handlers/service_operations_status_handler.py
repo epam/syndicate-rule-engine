@@ -73,6 +73,9 @@ class ServiceOperationsStatusHandler(AbstractHandler):
             _LOG.warning(f'Cannot find {service_operation_type.value} operation')
             
         return build_response(
-            content=[self._service_operation_service.to_dto(item) for item in items]
+            content=[
+                dto
+                for item in items
+                for dto in self._service_operation_service.to_dtos(item)
+            ]
         )
-

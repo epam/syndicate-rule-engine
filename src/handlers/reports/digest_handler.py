@@ -4,6 +4,7 @@ from typing import Any
 from modular_sdk.services.tenant_service import TenantService
 
 from handlers import AbstractHandler, Mapping
+from helpers import NextToken
 from helpers.constants import (
     Cloud,
     Endpoint,
@@ -11,7 +12,11 @@ from helpers.constants import (
     JobState,
     ReportFormat,
 )
-from helpers.lambda_response import LambdaOutput, build_response
+from helpers.lambda_response import (
+    LambdaOutput,
+    ResponseFactory,
+    build_response,
+)
 from models.job import Job
 from services import SP, modular_helpers
 from services.job_service import JobService
@@ -91,9 +96,13 @@ class DigestReportHandler(AbstractHandler):
             content=self._collection_response(job, collection, metadata, cloud)
         )
 
-    @staticmethod
     def _collection_response(
-        job: Job, collection: ShardsCollection, metadata: Metadata, cloud: Cloud
+        self,
+        job: Job,
+        collection: ShardsCollection,
+        metadata: Metadata,
+        cloud: Cloud,
+        href: bool = False,
     ) -> dict[str, Any]:
         """
         Builds response for the given collection
@@ -101,6 +110,8 @@ class DigestReportHandler(AbstractHandler):
         collection.fetch_all()
 
         report = ShardsCollectionDigestConvertor(cloud, metadata).convert(collection)
+        if href:
+            report = self._rs.one_time_url_json(report, f'{job.id}-digest.json')
         return ReportResponse(entity=job, content=report, fmt=ReportFormat.JSON).dict()
 
     @validate_kwargs
@@ -111,25 +122,30 @@ class DigestReportHandler(AbstractHandler):
         tenant = modular_helpers.assert_tenant_valid(tenant, event.customer)
         cloud = tenant_cloud(tenant)
 
-        jobs = self._js.get_by_tenant_name(
+        cursor = self._js.get_by_tenant_name(
             tenant_name=tenant_name,
             job_types=event.job_types,
             status=JobState.SUCCEEDED,
             start=event.start_iso,
             end=event.end_iso,
+            filter_condition=Job.platform_id.does_not_exist(),
+            limit=event.limit,
+            last_evaluated_key=NextToken.deserialize(event.next_token).value,
         )
-        jobs = filter(lambda x: not x.is_platform_job, jobs)
         metadata = self._ls.get_customer_metadata(tenant.customer_name)
         meta = self._rs.fetch_meta(tenant)
 
-        job_collection: list[tuple[Job, ShardsCollection]] = []
-        for job in jobs:
+        items = []
+        for job in cursor:
             col = self._rs.job_collection(tenant, job)
             col.meta = meta
-            job_collection.append((job, col))
-        return build_response(
-            content=map(
-                lambda pair: self._collection_response(*(pair + (metadata,)), cloud),
-                job_collection,
+            items.append(
+                self._collection_response(
+                    job, col, metadata, cloud, href=event.href
+                )
             )
+        return (
+            ResponseFactory()
+            .items(it=items, next_token=NextToken(cursor.last_evaluated_key))
+            .build()
         )

@@ -10,9 +10,11 @@ from srecli.group import (
     build_job_id_option,
     cli_response,
     from_date_report_option,
+    next_option,
     optional_job_type_option,
     tenant_option,
     to_date_report_option,
+    report_limit_option,
 )
 from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
@@ -36,6 +38,8 @@ def findings():
     is_flag=True,
     help='Return presigned URL instead of inline payload.',
 )
+@report_limit_option
+@next_option
 @cli_response()
 @presigned_url_hints_pack
 def jobs(
@@ -48,6 +52,8 @@ def jobs(
     href: bool,
     customer_id: str | None,
     obfuscated: bool,
+    limit: int,
+    next_token: str | None,
 ) -> SREResponse:
     """
     Describes detailed reports of jobs
@@ -74,7 +80,9 @@ def jobs(
         start_iso=from_date,
         end_iso=to_date,
         customer_id=customer_id,
-        obfuscated=obfuscated
+        obfuscated=obfuscated,
+        limit=limit,
+        next_token=next_token,
     )
 
 

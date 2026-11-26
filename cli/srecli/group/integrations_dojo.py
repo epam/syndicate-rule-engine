@@ -220,7 +220,7 @@ def update(ctx: ContextObj, integration_id: str,
            product_type: str | None, product: str | None, engagement: str | None,
            test: str | None, attachment: str | None, customer_id):
     """
-    Update a dojo activation.
+    Update a dojo activation
     """
 
     if send_after_job == 'yes':

@@ -1,3 +1,4 @@
+import json
 from io import BytesIO
 from types import SimpleNamespace
 from typing import cast
@@ -17,10 +18,14 @@ from handlers.reports.questionnaire_handler import (
 )
 from helpers.constants import Cloud, Severity
 from helpers.reports import Standard
-from services.metadata import CoverageControl, CoverageSection, Metadata
+from services.metadata import (
+    CoverageControl,
+    CoverageSection,
+    DomainMetadata,
+    Metadata,
+)
 from services.report_service import ReportService
 from services.sharding import ShardPart, ShardsCollectionFactory
-
 
 _STANDARD = Standard('CIS Kubernetes Benchmark', 'v1.7.0')
 
@@ -41,12 +46,12 @@ def _rule(cloud, severity, controls):
     )
 
 
-def _handler() -> QuestionnaireHandler:
+def _handler(license_service=None) -> QuestionnaireHandler:
     return QuestionnaireHandler(
         tenant_service=None,  # type: ignore[arg-type]
         job_service=None,  # type: ignore[arg-type]
         report_service=ReportService(None, None),  # type: ignore[arg-type]
-        license_service=None,  # type: ignore[arg-type]
+        license_service=license_service,  # type: ignore[arg-type]
         platform_service=None,  # type: ignore[arg-type]
     )
 
@@ -61,7 +66,7 @@ def test_mapping_keeps_rules_and_selects_highest_cloud_severity():
     )
 
     result = QuestionnaireHandler.build_standard_control_to_rule_names(
-        metadata=metadata, cloud=Cloud.AWS
+        metadata=metadata, cloud=Cloud.AWS, rule_descriptions={}
     )
 
     assert result == {
@@ -81,8 +86,8 @@ def test_mapping_sets_deprecated_rules_apart():
     metadata = _metadata(
         {
             'rule-low': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
-            'rule-high-deprecated': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
-            # only looks for deprecated things, the suffix check must keep it
+            'rule-high': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
+            'rule-high-deprecated': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
             'rule-deprecated-runtime': _rule(
                 Cloud.AWS, Severity.MEDIUM, ['1.1']
             ),
@@ -90,11 +95,21 @@ def test_mapping_sets_deprecated_rules_apart():
     )
 
     control = QuestionnaireHandler.build_standard_control_to_rule_names(
-        metadata=metadata, cloud=Cloud.AWS
+        metadata=metadata,
+        cloud=Cloud.AWS,
+        rule_descriptions={
+            'rule-high': '[DEPRECATED] Old rule description',
+            'rule-high-deprecated': 'A legacy-suffixed name without the marker',
+            'rule-deprecated-runtime': 'Runtime deprecation status is checked',
+        },
     )[_STANDARD.name][_STANDARD.version_str]['1.1']
 
-    assert control['rules'] == ['rule-low', 'rule-deprecated-runtime']
-    assert control['deprecated'] == ['rule-high-deprecated']
+    assert control['rules'] == [
+        'rule-low',
+        'rule-high-deprecated',
+        'rule-deprecated-runtime',
+    ]
+    assert control['deprecated'] == ['rule-high']
     # the severity of a deprecated rule must not leak into the control
     assert control['severity'] is Severity.MEDIUM
 
@@ -112,6 +127,112 @@ def test_resolve_standard_by_full_name():
         is _STANDARD
     )
     assert QuestionnaireHandler.resolve_standard(full_cov, 'nope') is None
+
+
+def test_standards_by_domain_lists_full_names_in_sorted_order():
+    metadata = Metadata(
+        domains={
+            'KUBERNETES': DomainMetadata(
+                full_cov={
+                    'CIS Kubernetes Benchmark': {
+                        'v1.7.0': {
+                            '1.1': CoverageControl(total_rules=1),
+                        },
+                    },
+                },
+            ),
+            'AWS': DomainMetadata(
+                full_cov={
+                    'CIS AWS Foundations Benchmark': {
+                        'v1.2.0': {
+                            '1.1': CoverageControl(total_rules=1),
+                        },
+                    },
+                },
+            ),
+            'AZURE': DomainMetadata(),
+        },
+    )
+
+    assert QuestionnaireHandler.standards_by_domain(metadata) == {
+        'AWS': ['CIS AWS Foundations Benchmark v1.2.0'],
+        'KUBERNETES': ['CIS Kubernetes Benchmark v1.7.0'],
+    }
+
+    assert QuestionnaireHandler.standards_by_domain(
+        metadata, domains={'KUBERNETES'}
+    ) == {
+        'KUBERNETES': ['CIS Kubernetes Benchmark v1.7.0'],
+    }
+
+
+def test_get_standards_returns_customer_standards_by_domain():
+    metadata = Metadata(
+        domains={
+            'AWS': DomainMetadata(
+                full_cov={
+                    'CIS AWS Foundations Benchmark': {
+                        'v1.2.0': {'1.1': CoverageControl(total_rules=1)},
+                    },
+                },
+            ),
+            'KUBERNETES': DomainMetadata(
+                full_cov={
+                    'CIS Kubernetes Benchmark': {
+                        'v1.7.0': {'1.1': CoverageControl(total_rules=1)},
+                    },
+                },
+            ),
+        },
+    )
+
+    class _FakeLicenseService:
+        def get_customer_metadata(self, customer):
+            assert customer == 'TEST_CUSTOMER'
+            return metadata
+
+    response = _handler(_FakeLicenseService()).get_standards(
+        event={
+            'customer_id': 'TEST_CUSTOMER',
+            'domains': 'AWS,KUBERNETES',
+        }
+    )
+
+    assert response['statusCode'] == 200
+    assert json.loads(response['body'])['data'] == {
+        'AWS': ['CIS AWS Foundations Benchmark v1.2.0'],
+        'KUBERNETES': ['CIS Kubernetes Benchmark v1.7.0'],
+    }
+
+
+def test_standard_error_message_points_to_catalog_for_incompatible_standard():
+    metadata = Metadata(
+        domains={
+            'KUBERNETES': DomainMetadata(
+                full_cov={
+                    'CIS Kubernetes Benchmark': {
+                        'v1.7.0': {'1.1': CoverageControl(total_rules=1)},
+                    },
+                },
+            ),
+        },
+    )
+
+    message = QuestionnaireHandler.standard_error_message(
+        metadata, Cloud.AWS, 'CIS Kubernetes Benchmark v1.7.0'
+    )
+
+    assert 'is listed for KUBERNETES' in message
+    assert 'report is for AWS' in message
+    assert 'sre report questionnaire standards' in message
+
+
+def test_standard_error_message_keeps_unknown_standard_distinguishable():
+    message = QuestionnaireHandler.standard_error_message(
+        Metadata.empty(), Cloud.AWS, 'unknown standard'
+    )
+
+    assert message == 'Standard unknown standard not found in metadata'
 
 
 def test_build_rows_aggregates_regions_with_failure_precedence():
@@ -193,7 +314,7 @@ def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
             ShardPart(policy='rule-a', location='eu-west-1', resources=[]),
             # deprecated and failing: must not turn the control into Fail
             ShardPart(
-                policy='rule-b-deprecated',
+                policy='rule-b',
                 location='eu-west-1',
                 resources=[{}],
             ),
@@ -202,9 +323,13 @@ def test_build_rows_drops_deprecated_rules_from_status_and_rule_ids():
     metadata = _metadata(
         {
             'rule-a': _rule(Cloud.AWS, Severity.LOW, ['1.1']),
-            'rule-b-deprecated': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
+            'rule-b': _rule(Cloud.AWS, Severity.HIGH, ['1.1']),
         }
     )
+    collection.meta = {
+        'rule-a': {'description': 'Regular rule'},
+        'rule-b': {'description': '[DEPRECATED] Retired rule'},
+    }
 
     # full_cov comes from LM and counts the deprecated rule as well
     (row,) = _handler().build_rows(
@@ -395,6 +520,3 @@ def test_filenames_follow_the_agreed_format():
         'accumulated-cis_kubernetes_benchmark_v1_7_0-MY-TENANT'
         '-questionnaire.xlsx'
     )
-
-
-

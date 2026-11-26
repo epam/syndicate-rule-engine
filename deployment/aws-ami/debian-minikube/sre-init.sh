@@ -97,15 +97,23 @@ Description:
 
 Usage:
   $PROGRAM $COMMAND [options]
+  $PROGRAM $COMMAND cli [options]
 
 Examples:
   $PROGRAM $COMMAND --check
   $PROGRAM $COMMAND -y
+  $PROGRAM $COMMAND cli
+
+Available Commands:
+  cli  Refresh modular-cli/sre-obfuscator CLI installations for onboarded linux users. Run '$PROGRAM $COMMAND cli --help' for details
 
 Options:
   --backup-name             Backup name to make before the update (default "$AUTO_BACKUP_PREFIX\$timestamp")
   --check                   Checks whether update is available but do not try to update
   --no-backup               Do not do backup
+  --no-secondary-user-clis  Do not refresh modular-cli/sre-obfuscator for other onboarded linux users (only the
+                            current user's CLIs are refreshed). By default, every update also refreshes CLIs for
+                            every other linux user detected to have them installed via pipx (see '$PROGRAM init --user')
   --defectdojo              Specify this flag to update Defect Dojo chart instead of Syndicate Rule Engine
   --same-version            Fetches images and artifacts for the version of Syndicate Rule Engine that is currently installed and updates
   --confirm-migration-token Required together with -y/--yes when the target release requires a mandatory MongoDB
@@ -113,6 +121,34 @@ Options:
                             token and the migration plan first
   -h, --help                Show this message and exit
   -y, --yes                 Automatic yes to prompts
+EOF
+}
+cmd_update_cli_usage() {
+  cat <<EOF
+Refreshes modular-cli/sre-obfuscator CLI installations for onboarded linux users
+
+Description:
+  Re-installs (via pipx) the Modular CLI and/or SRE Obfuscator CLI for the current user and for every other linux
+  user previously onboarded via '$PROGRAM init --user' (auto-detected by inspecting each user's pipx installations).
+  Useful to refresh secondary users' CLIs independently of a full '$PROGRAM update', or right after onboarding
+  several users.
+
+Usage:
+  $PROGRAM update cli [options]
+
+Examples:
+  $PROGRAM update cli
+  $PROGRAM update cli --yes --only modular-cli
+  $PROGRAM update cli --release 5.22.0
+  $PROGRAM update cli --path /usr/local/sre/releases/5.22.0 --users user1,userN
+
+Options:
+  -y, --yes            Automatic yes to the confirmation prompt
+  --release <version>  Release to source CLI artifacts from (default: latest local release)
+  --path <dir>         Custom directory with $MODULAR_CLI_ARTIFACT_NAME/$OBFUSCATOR_ARTIFACT_NAME (overrides --release)
+  --only <cli>         Update only the given CLI: 'modular-cli' or 'obfuscator'. Can be given multiple times (default: both)
+  --users <name,name>  Explicit comma-separated list of target users (default: current user + auto-detected users)
+  -h, --help           Show this message and exit
 EOF
 }
 cmd_update_list_usage() {
@@ -881,6 +917,15 @@ user_exists() { id "$1" &>/dev/null; }
 get_kubectl_secret() {
   kubectl get secret "$1" -o jsonpath="{.data.$2}" | base64 --decode
 }
+kubectl_as_first_user() {
+  # kubectl/minikube context is only configured under $FIRST_USER's home; this script can be
+  # invoked via sudo (running as root, with no kubeconfig), so route through that user explicitly
+  if [ "$(whoami)" = "$FIRST_USER" ]; then
+    kubectl "$@"
+  else
+    sudo -u "$FIRST_USER" -H kubectl "$@"
+  fi
+}
 yesno() {
   [[ -t 0 ]] || return 0
   local response
@@ -967,6 +1012,99 @@ pipx_install_artifact() {
 
   echo "Installing '${app_name}' using Python interpreter: ${python_bin}"
   pipx install --force --python "$python_bin" "$@"
+}
+
+user_has_pipx_cli() {
+  # $1 = linux username, $2 = pipx package name (e.g. modular-cli / sre-obfuscator)
+  sudo su - "$1" -c "pipx list" 2>/dev/null | grep -q "package ${2} "
+}
+
+iter_pipx_cli_users() {
+  # outputs real linux usernames (excluding $1) that have modular-cli and/or sre-obfuscator installed via pipx
+  local exclude="$1" login uid home shell
+  while IFS=: read -r login _ uid _ _ home shell; do
+    [ "$login" = "$exclude" ] && continue
+    [ "$uid" -lt 1000 ] && continue
+    [ -d "$home" ] || continue
+    case "$shell" in
+      */nologin | */false) continue ;;
+    esac
+    if user_has_pipx_cli "$login" modular-cli || user_has_pipx_cli "$login" sre-obfuscator; then
+      echo "$login"
+    fi
+  done </etc/passwd
+}
+
+install_cli_artifacts_current_user() {
+  # $1=python_bin $2=release_path; remaining args: which CLIs to (re)install: modular-cli and/or obfuscator
+  local python_bin="$1" release_path="$2" what err=0
+  shift 2
+  for what in "$@"; do
+    case "$what" in
+      modular-cli)
+        if [ -f "$release_path/$MODULAR_CLI_ARTIFACT_NAME" ]; then
+          MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx_install_artifact "$python_bin" "modular-cli" "$release_path/$MODULAR_CLI_ARTIFACT_NAME" || err=1
+        fi
+        ;;
+      obfuscator)
+        if [ -f "$release_path/$OBFUSCATOR_ARTIFACT_NAME" ]; then
+          pipx_install_artifact "$python_bin" "sre-obfuscator" "$release_path/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]" || err=1
+        fi
+        ;;
+    esac
+  done
+  return "$err"
+}
+
+install_cli_artifacts_for_user() {
+  # $1=linux username $2=python_bin $3=release_path; remaining args: which CLIs to (re)install: modular-cli and/or obfuscator
+  local user="$1" python_bin="$2" release_path="$3" what err=0
+  shift 3
+  for what in "$@"; do
+    case "$what" in
+      modular-cli)
+        if [ ! -f "$release_path/$MODULAR_CLI_ARTIFACT_NAME" ]; then
+          warn "modular CLI artifact not found in $release_path"
+          err=1
+          continue
+        fi
+        sudo su - "$user" <<EOF || err=1
+        pipx uninstall modular-cli || true
+        MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx install --force --python "$python_bin" "$release_path/$MODULAR_CLI_ARTIFACT_NAME"
+EOF
+        ;;
+      obfuscator)
+        if [ ! -f "$release_path/$OBFUSCATOR_ARTIFACT_NAME" ]; then
+          warn "obfuscator artifact not found in $release_path"
+          err=1
+          continue
+        fi
+        sudo su - "$user" <<EOF || err=1
+        pipx uninstall sre-obfuscator || true
+        pipx install --force --python "$python_bin" "$release_path/${OBFUSCATOR_ARTIFACT_NAME}[xlsx]"
+EOF
+        ;;
+    esac
+  done
+  return "$err"
+}
+
+refresh_secondary_user_clis() {
+  # $1=release tag, $2=python_bin; remaining args: which CLIs to refresh (modular-cli and/or obfuscator)
+  local release="$1" python_bin="$2" release_path="$SRE_RELEASES_PATH/$1" user users=() failed=()
+  shift 2
+  mapfile -t users < <(iter_pipx_cli_users "$(whoami)")
+  if [ "${#users[@]}" -eq 0 ]; then
+    _debug "No secondary users with pipx-installed CLIs detected"
+    return 0
+  fi
+  echo "Refreshing CLIs for other onboarded users: ${users[*]}"
+  for user in "${users[@]}"; do
+    echo "Refreshing CLIs for user $user"
+    install_cli_artifacts_for_user "$user" "$python_bin" "$release_path" "$@" || { warn "could not refresh CLIs for user $user"; failed+=("$user"); }
+  done
+  [ "${#failed[@]}" -gt 0 ] && warn "CLI refresh failed for: ${failed[*]}"
+  return 0
 }
 
 initialize_system() {
@@ -1210,19 +1348,19 @@ EOF
 EOF
 
   local err=0
-  kubectl exec service/modular-api -- ./modular.py user describe --username "$target_user" &>/dev/null || err=1
+  kubectl_as_first_user exec service/modular-api -- ./modular.py user describe --username "$target_user" &>/dev/null || err=1
 
   if [ "$err" -ne 0 ]; then
     echo "Creating new modular-api user"
     new_password="$(generate_password 20 -hex)"
-    kubectl exec service/modular-api -- ./modular.py user add --username "$target_user" --group admin_group --password "$new_password"
+    kubectl_as_first_user exec service/modular-api -- ./modular.py user add --username "$target_user" --group admin_group --password "$new_password"
     sudo su - "$target_user" <<EOF
     echo "Logging in to modular-cli"
     ~/.local/bin/syndicate setup --username "$target_user" --password "$new_password" --api_path "http://127.0.0.1:8085"
     ~/.local/bin/syndicate login
 EOF
   else
-    echo "Modular api user has been initialized before"
+    echo "Modular API user has been initialized before"
   fi
 
   if [ -n "$re_username" ]; then
@@ -1257,6 +1395,14 @@ download_from_github_url() {
     return 1
   fi
 }
+make_artifact_world_readable() {
+  # only the pipx-installed CLI artifacts need to be readable by other linux users (e.g. pipx install); $1=file path, $2=artifact filename
+  case "$2" in
+    "$MODULAR_CLI_ARTIFACT_NAME" | "$OBFUSCATOR_ARTIFACT_NAME")
+      chmod 644 "$1"
+      ;;
+  esac
+}
 check_asset_digest() {
   # accepts path to file and asset json
   local digest
@@ -1281,12 +1427,14 @@ pull_artifact() {
       _debug "Artifact $name already exists but has different digest. Going to download it again"
     else
       _debug "Artifact $name already exists and has the same digest. Skipping download"
+      make_artifact_world_readable "$destination" "$name"
       return 0
     fi
   fi
 
   url="$(jq -r '.url' <<<"$2")"
   if download_from_github_url "$destination" "$url"; then
+    make_artifact_world_readable "$destination" "$name"
     _debug "Downloaded $name to $destination"
     return 0
   else
@@ -1299,6 +1447,7 @@ pull_artifacts() {
   local tag
   tag="$(jq -r '.tag_name' <<<"$1")"
   mkdir -p "$SRE_RELEASES_PATH/$tag"
+  chmod 755 "$SRE_RELEASES_PATH/$tag" # release dir must stay traversable by other linux users
 
   while IFS= read -r asset; do
     if pull_artifact "$SRE_RELEASES_PATH/$tag" "$asset"; then
@@ -1451,8 +1600,14 @@ perform_self_update() {
 }
 
 cmd_update() {
-  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values update_defectdojo=0 confirm_migration_token=""
-  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,defectdojo,allow-prereleases,same-version,backup-name:,confirm-migration-token:" -n "$PROGRAM" -- "$@")"
+  if [ "$1" = "cli" ]; then
+    shift
+    cmd_update_cli "$@"
+    return
+  fi
+
+  local opts auto_yes=0 current_release release_data latest_tag backup_name="" iter_params=() check=0 same_version=0 do_backup=1 do_patch='true' helm_values update_defectdojo=0 confirm_migration_token="" do_secondary_clis=1
+  opts="$(getopt -o "hy" --long "help,yes,check,no-backup,no-patch,defectdojo,allow-prereleases,same-version,backup-name:,confirm-migration-token:,no-secondary-user-clis" -n "$PROGRAM" -- "$@")"
   eval set -- "$opts"
   while true; do
     case "$1" in
@@ -1474,6 +1629,10 @@ cmd_update() {
         ;;
       '--no-patch')
         do_patch='false'
+        shift
+        ;;
+      '--no-secondary-user-clis')
+        do_secondary_clis=0
         shift
         ;;
       '--backup-name')
@@ -1650,9 +1809,123 @@ cmd_update() {
     echo "Upgrading modular CLI"
     MODULAR_CLI_ENTRY_POINT=$MODULAR_CLI_ENTRY_POINT pipx_install_artifact "$cli_python_bin" "modular-cli" "$SRE_RELEASES_PATH/$latest_tag/${MODULAR_CLI_ARTIFACT_NAME}" >/dev/null
   fi
+
+  if [ "$do_secondary_clis" -eq 1 ]; then
+    local cli_targets=()
+    [ -f "$SRE_RELEASES_PATH/$latest_tag/$MODULAR_CLI_ARTIFACT_NAME" ] && cli_targets+=(modular-cli)
+    [ -f "$SRE_RELEASES_PATH/$latest_tag/$OBFUSCATOR_ARTIFACT_NAME" ] && cli_targets+=(obfuscator)
+    [ "${#cli_targets[@]}" -gt 0 ] && refresh_secondary_user_clis "$latest_tag" "$cli_python_bin" "${cli_targets[@]}"
+  else
+    _debug "Skipping secondary users' CLI refresh (--no-secondary-user-clis)"
+  fi
+
   if [ -f "$SRE_RELEASES_PATH/$latest_tag/$SRE_INIT_ARTIFACT_NAME" ]; then
     echo "Updating sre-init"
     update_sre_init "$latest_tag" || true
+  fi
+  echo "Done"
+}
+
+cmd_update_cli() {
+  local opts auto_yes=0 release="" path="" users_arg="" only=() python_bin="" release_path="" users=() targets=()
+
+  opts="$(getopt -o "hy" --long "help,yes,release:,path:,only:,users:" -n "$PROGRAM" -- "$@")" || die "$(cmd_unrecognized)"
+  eval set -- "$opts"
+  while true; do
+    case "$1" in
+      -h | --help)
+        cmd_update_cli_usage
+        exit 0
+        ;;
+      -y | --yes)
+        auto_yes=1
+        shift
+        ;;
+      --release)
+        release="$2"
+        shift 2
+        ;;
+      --path)
+        path="$2"
+        shift 2
+        ;;
+      --only)
+        case "$2" in
+          modular-cli | obfuscator) : ;;
+          *) die "--only must be 'modular-cli' or 'obfuscator'" ;;
+        esac
+        only+=("$2")
+        shift 2
+        ;;
+      --users)
+        users_arg="$2"
+        shift 2
+        ;;
+      '--')
+        shift
+        break
+        ;;
+    esac
+  done
+
+  if [ -n "$path" ]; then
+    [ -n "$release" ] && warn "--release is ignored because --path is specified"
+    release_path="$path"
+    python_bin="$(resolve_python_bin)"
+  else
+    [ -z "$release" ] && release="$(get_latest_local_release)"
+    [ -z "$release" ] && die_with_support "Failed to resolve latest local release"
+    release_path="$SRE_RELEASES_PATH/$release"
+    python_bin="$(check_modular_cli_python_compatibility "$release")"
+  fi
+
+  targets=("${only[@]}")
+  [ "${#targets[@]}" -eq 0 ] && targets=(modular-cli obfuscator)
+
+  local target has_any=0
+  for target in "${targets[@]}"; do
+    case "$target" in
+      modular-cli)
+        [ -f "$release_path/$MODULAR_CLI_ARTIFACT_NAME" ] && has_any=1 || warn "modular CLI artifact not found in $release_path"
+        ;;
+      obfuscator)
+        [ -f "$release_path/$OBFUSCATOR_ARTIFACT_NAME" ] && has_any=1 || warn "obfuscator artifact not found in $release_path"
+        ;;
+    esac
+  done
+  [ "$has_any" -eq 0 ] && die "none of the requested CLI artifacts were found in $release_path"
+
+  if [ -n "$users_arg" ]; then
+    IFS=',' read -ra users <<<"$users_arg"
+  else
+    users=("$(whoami)")
+    while IFS= read -r u; do
+      users+=("$u")
+    done < <(iter_pipx_cli_users "$(whoami)")
+  fi
+
+  if [ "${#users[@]}" -eq 0 ]; then
+    echo "No users to update"
+    return 0
+  fi
+
+  echo "The following users will have their CLI(s) [${targets[*]}] refreshed from $release_path:"
+  printf '  - %s\n' "${users[@]}"
+  [[ $auto_yes -eq 1 ]] || yesno "Continue?"
+
+  local user failed=()
+  for user in "${users[@]}"; do
+    echo "Refreshing CLI(s) for user $user"
+    if [ "$user" = "$(whoami)" ]; then
+      install_cli_artifacts_current_user "$python_bin" "$release_path" "${targets[@]}" || { warn "could not refresh CLI(s) for user $user"; failed+=("$user"); }
+    else
+      install_cli_artifacts_for_user "$user" "$python_bin" "$release_path" "${targets[@]}" || { warn "could not refresh CLI(s) for user $user"; failed+=("$user"); }
+    fi
+  done
+
+  if [ "${#failed[@]}" -gt 0 ]; then
+    warn "CLI refresh failed for: ${failed[*]}"
+    return 1
   fi
   echo "Done"
 }

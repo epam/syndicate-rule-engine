@@ -3540,7 +3540,7 @@ wheels = [
 
 [[package]]
 name = "syndicate-rule-engine"
-version = "5.22.0"
+version = "5.23.0"
 source = { virtual = "." }
 dependencies = [
     { name = "bcrypt" },

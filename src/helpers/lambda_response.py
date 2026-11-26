@@ -5,6 +5,7 @@ import msgspec
 
 from helpers.__version__ import __version__
 from helpers.constants import (
+    Env,
     JSON_CONTENT_TYPE,
     LAMBDA_URL_HEADER_CONTENT_TYPE_UPPER,
 )
@@ -89,13 +90,33 @@ class LambdaResponse:
     def ok(self) -> bool:
         return 200 <= self._code <= 206 or 301 <= self._code <= 308
 
+    @staticmethod
+    def _allowed_cors_origins() -> set[str]:
+        raw = Env.CORS_ALLOWED_ORIGINS.get('')
+        return {item.strip() for item in raw.split(',') if item.strip()}
+
+    def _cors_origin_header(self) -> dict[str, str]:
+        allowed = self._allowed_cors_origins()
+        if not allowed:
+            return {}
+
+        origin = SP.tls.__dict__.get('origin')
+        if origin in allowed:
+            return {
+                'Access-Control-Allow-Origin': origin,
+                'Vary': 'Origin',
+            }
+        return {}
+
     def _common_headers(self) -> dict[str, str]:
         headers = {
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-            'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': '*',
             'Accept-Version': __version__,  # TODO API think about header name
         }
+        if hsts := (Env.HSTS_HEADER.get() or '').strip():
+            headers['Strict-Transport-Security'] = hsts
+        headers.update(self._cors_origin_header())
         if trace_id := SP.tls.__dict__.get('aws_request_id'):
             headers['Lambda-Invocation-Trace-Id'] = trace_id
         if not self.ok:

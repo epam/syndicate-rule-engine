@@ -11,18 +11,25 @@ from srecli.service.adapter_client import SREResponse
 from srecli.service.presigned_hints_pack import presigned_url_hints_pack
 
 
-@click.command(cls=ViewCommand, name='dashboard')
+@click.group(name='dashboard')
+def dashboard():
+    """Describes dashboard reports"""
+
+
+@dashboard.command(cls=ViewCommand, name='jobs')
 @build_job_id_option(required=False)
 @build_tenant_option(required=False)
 @cli_response()
 @presigned_url_hints_pack
-def dashboard(
+def jobs(
     ctx: ContextObj,
     job_id: str | None,
     tenant_name: str | None,
     customer_id: str | None,
 ) -> SREResponse:
-    """Generate an Excel dashboard from a scan job or tenant."""
+    """
+    Generate an Excel dashboard from a scan job or tenant
+    """
     fields = (job_id, tenant_name)
     if not any(fields) or all(fields):
         raise click.ClickException(

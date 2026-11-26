@@ -23,7 +23,9 @@ def maestro_aws(
     events_file: str,
     customer_id: str,
 ) -> SREResponse:
-    """Send maestro events from a JSON file (vendor MAESTRO)."""
+    """
+    Send maestro events from a JSON file (vendor MAESTRO)
+    """
     return _run_maestro_events(
         ctx,
         customer_id=customer_id,
@@ -41,7 +43,9 @@ def maestro_azure(
     events_file: str,
     customer_id: str,
 ) -> SREResponse:
-    """Send maestro events from a JSON file (vendor MAESTRO)."""
+    """
+    Send maestro events from a JSON file (vendor MAESTRO)
+    """
     return _run_maestro_events(
         ctx,
         customer_id=customer_id,
@@ -59,7 +63,9 @@ def maestro_google(
     events_file: str,
     customer_id: str,
 ) -> SREResponse:
-    """Send maestro events from a JSON file (vendor MAESTRO)."""
+    """
+    Send maestro events from a JSON file (vendor MAESTRO)
+    """
     return _run_maestro_events(
         ctx,
         customer_id=customer_id,
