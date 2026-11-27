@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `sre report rbac summary latest|jobs` commands to generate compact single-pane-of-glass Kubernetes RBAC Excel reports
 - Added `sre report workloads detailed latest|jobs` commands to generate detailed Kubernetes workloads rule-level Excel reports for pod rules
 - Added `sre report workloads summary latest|jobs` commands to generate summary Kubernetes workloads rule-level Excel reports for pod rules
+- Added `sre report findings k8s_control` to generate Kubernetes Control Plane findings reports in Markdown or JSON for a platform scan job
 
 ## [5.22.0] - 2026-11-04
 

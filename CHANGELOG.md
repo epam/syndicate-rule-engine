@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Kubernetes workloads rule-level endpoints for reports that list all unique violated workloads in one sheet with the titles of the pod rules they violate:
   - `GET /reports/workloads/platforms/k8s/{platform_id}/summary/latest` - returns the latest complete report for a platform
   - `GET /reports/workloads/summary/jobs/{job_id}` - returns the report for a specific platform scan
+- Added a Kubernetes Control Plane findings report for platform scan jobs:
+  - `GET /reports/findings/jobs/{job_id}/control-plane`
 
 ### Fixed
 - Improved the questionnaire report error for standards unavailable to the selected job or tenant; the message now points to the standards listing command

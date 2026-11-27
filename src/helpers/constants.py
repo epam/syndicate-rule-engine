@@ -117,6 +117,9 @@ class Endpoint(str, Enum):
     REPORTS_DETAILS_JOBS_JOB_ID = '/reports/details/jobs/{job_id}'
     TENANTS_TENANT_NAME_REGIONS = '/tenants/{tenant_name}/regions'
     REPORTS_FINDINGS_JOBS_JOB_ID = '/reports/findings/jobs/{job_id}'
+    REPORTS_FINDINGS_JOBS_JOB_ID_CONTROL_PLANE = (
+        '/reports/findings/jobs/{job_id}/control-plane'
+    )
     REPORTS_PUSH_CHRONICLE_JOB_ID = '/reports/push/chronicle/{job_id}'
     REPORTS_RESOURCES_JOBS_JOB_ID = '/reports/resources/jobs/{job_id}'
     REPORTS_COMPLIANCE_JOBS_JOB_ID = '/reports/compliance/jobs/{job_id}'

@@ -1639,6 +1639,12 @@ class TenantJobsFindingsReportGetModel(
     obfuscated: bool = False
 
 
+class ControlPlaneJobReportGetModel(BaseModel):
+    format: Literal['md', 'json'] = 'md'
+    href: bool = False
+    obfuscated: bool = False
+
+
 class JobDetailsReportGetModel(BaseModel):
     href: bool = False
     obfuscated: bool = False
